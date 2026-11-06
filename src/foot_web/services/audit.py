@@ -64,7 +64,26 @@ def audit(data, require_reasons=True):
         for a, b, eff in effective_multiples(legs):
             tag = f'{n}: 分支{a["label"]}×{b["label"]} 整单实际倍数{eff.quantize(Decimal("0.0001"))}'
             (errs if eff <= GATE else notes).append(tag + ('≤2.5' if eff <= GATE else ' 通过'))
-    for dl in data.get('dream', []):
+    dream = data.get('dream', [])
+    if strict_evidence and (dream or data.get('dream_legs')):
+        dream_legs = data.get('dream_legs', [])
+        if len(dream) != 4 or len(dream_legs) != 4 or len({d.get('num') for d in dream}) != 4:
+            errs.append('梦想单必须四场不同比赛各一比分，不能缺腿或重复')
+        for leg in dream_legs:
+            if leg.get('sport') != 'football' or leg.get('market') != 'CRS' or len(leg.get('options', [])) != 1:
+                errs.append('梦想单必须为足球CRS单比分4串1')
+            if len(leg.get('reasons', [])) < 2 or not leg.get('sources'):
+                errs.append('梦想单每腿须两条理由及非赔率来源')
+            if any(Decimal(str(o['odds'])) < MIN_FB for o in leg.get('options', [])):
+                errs.append('梦想单单项赔率低于1.33')
+        if {d.get('num') for d in dream} != {d.get('num') for d in dream_legs}:
+            errs.append('梦想单审核比分与实际四腿不一致')
+        for dl in dream:
+            leg = next((l for l in dream_legs if l.get('num') == dl.get('num')), None)
+            if leg and (leg.get('label') != dl.get('score') or not leg.get('options')
+                        or Decimal(str(leg['options'][0]['odds'])) != Decimal(str(dl.get('odds', 0)))):
+                errs.append('梦想单比分或价格与冻结腿不一致')
+    for dl in dream:
         lg = finals.get(dl['num'])
         if lg:
             H, A = map(int, dl['score'].split(':'))

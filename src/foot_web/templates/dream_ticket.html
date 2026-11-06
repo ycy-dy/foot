@@ -1,0 +1,11 @@
+<section class="card" id="dream-ticket"><h2>比分4串1梦想单</h2>
+<div class="notice">高风险独立栏目：四场不同足球比赛，各选一个准确比分，<b>四场全部正确才命中</b>。每腿证据可信度须≥70分，不等于比分命中概率；不自动扩为81注或六张4选2，不执行投注。</div>
+{% if dream.legs %}
+<p>冻结发布 {{ dream.publication_id }} · {{ dream.published_at }} · 主队:客队比分</p>
+<div class="scroll"><table class="grid"><tr><th>编号/开球</th><th>对阵</th><th>主选比分</th><th>赔率</th><th>证据可信度</th></tr>
+{% for leg in dream.legs %}<tr><td>{{ leg.num }}<br>{{ leg.kickoff }}</td><td>{{ leg.home }} VS {{ leg.away }}</td><td><b>{{ leg.label }}</b></td><td>@{{ leg.options[0].odds }}</td><td>{{ leg.evidence_confidence.evidence_confidence }}/100<br>{{ leg.evidence_confidence.version }}</td></tr>{% endfor %}</table></div>
+<p>单分支理论组合赔率：{{ dream.product }}；市场基准四腿联合估计 {{ dream.joint_market|pct }}（独立近似，未处理相关性，非模型概率）。模型概率/EV=null，理论赔率不保证税后收益。</p>
+{% for leg in dream.legs %}<details><summary>{{ leg.num }} 比分{{ leg.label }} · 理由与风险</summary><ul>{% for reason in leg.reasons %}<li>{{ reason }}</li>{% endfor %}</ul><p>主要失败路径：{{ leg.risk }}</p><p>撤销条件：{{ leg.withdraw_if }}</p></details>{% endfor %}
+<a class="btn" href="/daily-ledger?date={{ bd }}">查看梦想单独立冻结台账与复盘依据</a>
+{% else %}<p><b>梦想单未形成：</b>{{ dream.reason }}</p><p>完成真实逐场研究与审核后才展示，不填充虚构比分。</p>{% endif %}
+</section>

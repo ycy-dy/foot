@@ -27,6 +27,7 @@
 - [AI Agent 系统蓝图](docs/sports-agent-system.md)
 - [目录约定](docs/directory-layout.md)
 - [逐场分析规格](specs/015-per-match-analysis/spec.md)：首页每场进入详情，查看已保存AI研究、证据分、玩法理由和风险；无结果标待分析。
+- [梦想比分4串1](specs/016-dream-score-ticket/spec.md)：首页独立栏目展示已审核发布四场准确比分，逐腿≥70证据分，不足不凑单，独立台账与复盘。
 - [代码提交修改台账](docs/commit-ledger.md)：每次提交记录修改、验证和推送状态；提交后必须推送既有远程上游。
 - [.specify/memory/constitution.md](.specify/memory/constitution.md)
 

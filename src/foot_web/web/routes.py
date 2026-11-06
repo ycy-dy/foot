@@ -58,7 +58,9 @@ def index():
     for m in rows:
         m['exclusion'] = exclusion_reason(m, now)
     report = latest_report(current_app.config['FOOT']['PROJECT_DIR'], bd, current_app.config['FOOT']['DATA_DIR'])
-    return render_template('recommendation_dashboard.html', bd=bd, week=markets.weekday_label(bd),
+    from ..services.dream import published_dream
+    dream = published_dream(current_app.extensions['publications'], current_app.config['FOOT'], bd)
+    return render_template('recommendation_dashboard.html', dream=dream, bd=bd, week=markets.weekday_label(bd),
                            dates=dates or [bd], matches=rows, error=error, report=report,
                            analysis_task=current_app.extensions['analysis_tasks'].latest(bd)
                            if g.user['role'] == 'admin' else None)

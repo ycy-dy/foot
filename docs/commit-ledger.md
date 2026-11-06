@@ -78,5 +78,13 @@
 - **范围**：首页每场分析链接、比赛详情只读AI研究摘要、精确身份/版本匹配projection、逐玩法证据分与理由风险撤销、管理员完整证据页评分、隔离测试与说明。
 - **权限/边界**：viewer可读摘要不获得管理员研究日志入口，GET不运行AI不发布；无研究标待分析，旧版/低分不当当前推荐，冻结研究价与当前报价分开。不读取DWS或发送消息。
 - **验证**：专项4项通过，全量/部署结果见[015验证](../specs/015-per-match-analysis/verification.md)。旧源/运行数据不改；提交后推送main，不推备份历史。
-- **提交定位**：`feat: per-match analysis evidence and confidence views [C20261106-007]`，Refs #5；推送结果在Issue与答复核实。
+- **同步结果**：377c4ff已推送并核验远程一致，同时补推73aef16；Issue #5关闭。
+
+## C20261106-008 · 梦想比分4串1独立栏目
+
+- **关联**：[Issue #6](https://github.com/ycy-dy/foot/issues/6)、[规格016](../specs/016-dream-score-ticket/spec.md)。
+- **范围**：首页独立梦想栏目/冻结发布投影、四腿比分赔率与组合乘积/证据分/理由风险撤销/台账入口；强化严格审核四腿唯一CRS、低分及比分价格一致性。
+- **边界**：只显示当前政策审核发布版本，空态不凑单，不自动扩注、不投注；独立模型概率EV仍null，市场联合只是独立近似；不修改原票、生产数据和凭证。
+- **验证**：见[016验证记录](../specs/016-dream-score-ticket/verification.md)；提交后push及结果由Issue/当次答复确认。
+- **提交定位**：`feat: visible four-leg exact-score dream ticket [C20261106-008]`，Refs #6，目标origin/main。
 
