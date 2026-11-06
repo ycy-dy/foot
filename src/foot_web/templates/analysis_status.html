@@ -1,0 +1,43 @@
+<section id="analysis-workspace" class="analysis-workspace"{% if not analysis_task %} hidden{% endif %}>
+<div id="analysis-status" class="analysis-status" role="status" aria-live="polite">
+  <span class="analysis-symbol">{{ icon('sparkles') }}</span>
+  <div class="analysis-status-copy"><strong id="analysis-title">AI 分析任务</strong><span id="analysis-message">{{ analysis_task.message if analysis_task else '' }}</span></div>
+  <a id="analysis-result" class="text-action"{% if analysis_task %} href="{{ analysis_task.result_url }}"{% else %} hidden{% endif %}>查看任务 {{ icon('arrow-up-right') }}</a>
+</div>
+<div class="analysis-monitor">
+  <ol class="analysis-stages" aria-label="分析阶段">
+    {% for key, label in [('snapshot', '官方快照'), ('research', '逐场证据'), ('compose', '组合审核'), ('draft', '分析草稿')] %}
+    <li data-analysis-stage="{{ key }}" data-state="pending"><i aria-hidden="true"></i><span>{{ label }}<small>等待</small></span></li>
+    {% endfor %}
+  </ol>
+  <div class="analysis-times"><span>{{ icon('clock-3') }}<span id="analysis-elapsed">00:00</span></span><span id="analysis-last-event">等待首条日志</span></div>
+</div>
+<div class="analysis-progress-bar">
+  <span id="analysis-match-progress">逐场进度 · 等待快照</span>
+  <div class="actions">
+    <label class="log-follow" id="analysis-reuse-label" hidden><input type="checkbox" id="analysis-reuse" checked>复用近期证据</label>
+    <button type="button" id="analysis-cancel" data-analysis-action="cancel" class="btn stop-analysis" title="终止当前分析，保留成功检查点" hidden>{{ icon('square') }}<span>终止分析</span></button>
+    <button type="button" id="analysis-resume" data-analysis-action="resume" class="btn primary" title="只继续失败或未完成的比赛" hidden>{{ icon('refresh-cw') }}继续分析</button>
+    <a href="/analysis" class="text-action">分析中心 {{ icon('arrow-up-right') }}</a>
+  </div>
+</div>
+<details id="analysis-log-panel" class="analysis-log-panel"{% if analysis_task and (analysis_task.status in ['queued', 'running', 'failed', 'interrupted'] or request.endpoint == 'pages.analysis_view') %} open{% endif %}>
+  <summary><span>{{ icon('scroll-text') }}执行日志</span><span id="analysis-log-connection" class="log-connection">正在连接</span></summary>
+  <div class="analysis-log-toolbar">
+    <div class="segmented log-providers" role="group" aria-label="日志提供方">
+      {% for key, label in [('all', '全部'), ('claude', 'Claude'), ('codex', 'Codex'), ('system', '系统')] %}
+      <button type="button" data-log-provider="{{ key }}" aria-pressed="{{ 'true' if loop.first else 'false' }}" class="{{ 'on' if loop.first }}">{{ label }}</button>
+      {% endfor %}
+    </div>
+    <input type="search" id="analysis-log-search" aria-label="搜索日志" placeholder="搜索日志" autocomplete="off">
+    <label class="log-follow"><input type="checkbox" id="analysis-log-follow" checked>跟随最新</label>
+    <a id="analysis-log-download" class="icon-btn" title="导出日志" aria-label="导出日志"{% if analysis_task %} href="{{ analysis_task.logs_url }}/download"{% endif %}>{{ icon('download') }}</a>
+  </div>
+  <div id="analysis-log-viewport" class="analysis-log-viewport" tabindex="0" aria-label="执行日志内容">
+    <ol id="analysis-log-lines" class="analysis-log-lines" role="log" aria-live="off"></ol>
+    <div class="log-empty" id="analysis-log-empty">{{ icon('scroll-text') }}<span>正在读取执行日志</span></div>
+  </div>
+  <div class="analysis-log-footer"><span id="analysis-log-count">0 条日志</span><button type="button" class="text-action" id="analysis-log-latest" hidden>查看最新</button><span id="analysis-log-sync">尚未同步</span></div>
+</details>
+</section>
+<script type="application/json" id="analysis-task-data">{{ analysis_task|tojson }}</script>

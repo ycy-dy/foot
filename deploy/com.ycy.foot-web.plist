@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- 安装：cp deploy/com.ycy.foot-web.plist ~/Library/LaunchAgents/ && launchctl load ~/Library/LaunchAgents/com.ycy.foot-web.plist -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.ycy.foot-web</string>
+  <key>ProgramArguments</key><array><string>/Users/ycy/ycy/foot/deploy/start.sh</string></array>
+  <key>WorkingDirectory</key><string>/Users/ycy/ycy/foot</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/Users/ycy/.local/bin:/usr/local/bin:/usr/bin:/bin</string></dict>
+  <key>StandardOutPath</key><string>/Users/ycy/ycy/foot/var/logs/launchd.out.log</string>
+  <key>StandardErrorPath</key><string>/Users/ycy/ycy/foot/var/logs/launchd.err.log</string>
+</dict>
+</plist>

@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}AI 分析任务 · {{ analysis_task.business_date }}{% endblock %}
+{% block body %}
+<div class="pagehead">
+  <div><div class="eyebrow">{{ analysis_task.business_date }} / AI 研究</div><h1>{{ '分析草稿' if draft_html else '分析任务' }}</h1><div class="meta">{{ analysis_task.id }}<br>创建于 <time datetime="{{ analysis_task.created_at }}">{{ analysis_task.created_at[:19]|replace('T', ' ') }}</time></div></div>
+  <div class="actions"><a class="btn" href="/?date={{ analysis_task.business_date }}">返回今日推荐</a><button class="btn primary" type="button" id="btn-recompute" data-analysis-date="{{ analysis_task.business_date }}" title="重新发起分析">{{ icon('refresh-cw') }}<span>重新分析</span></button>{% include 'analysis_stop_button.html' %}</div>
+</div>
+{% include 'analysis_status.html' %}
+<section class="card" id="research-matches">
+  <div class="card-title"><h2>逐场进度</h2><span class="small muted" id="research-match-count">{{ research_items|length }} 场完整清单</span></div>
+  <div id="research-match-list" class="research-match-list">
+  {% for item in research_items %}
+    <a class="research-match-row" href="{{ item.url }}" data-match-key="{{ item.match_key }}">
+      <span class="research-match-meta">{{ item.num }}<small>{{ item.kickoff }} · {{ item.league }}</small></span>
+      <span class="research-match-teams">{{ item.away if item.sport == 'basketball' else item.home }} VS {{ item.home if item.sport == 'basketball' else item.away }}</span>
+      <span class="research-match-state">{{ {'succeeded':'已保存','running':'研究中','failed':'失败，可续跑','excluded':'已排除','pending':'等待'}[item.status] }}</span>
+      <span class="research-match-note">{{ item.message }} · 来源 {{ item.sources }} {{ icon('arrow-up-right') }}</span>
+    </a>
+  {% else %}<p class="muted small">尚无逐场检查点。旧任务保留原有执行记录。</p>{% endfor %}
+  </div>
+</section>
+<div class="notice">此页保留原分析草稿；正式报告以审核发布的新版本为准。</div>
+{% if draft_html %}<div class="audit-entry"><a class="btn primary" href="/analysis/{{ analysis_task.id }}/review">{{ icon('shield-check') }}审核与发布</a><span class="small muted">刷新官方状态、检查全部门槛并人工确认</span></div>{% endif %}
+<section class="card" id="analysis-attempts"{% if not analysis_task.attempts %} hidden{% endif %}>
+  <div class="card-title"><h3>执行记录</h3></div>
+  <div class="scroll"><table class="grid">
+    <thead><tr><th>提供方</th><th>状态</th><th>结果</th><th class="num">耗时</th></tr></thead>
+    <tbody id="analysis-attempt-rows">{% for attempt in analysis_task.attempts %}<tr><td>{{ attempt.provider|title }}</td><td>{{ '已完成' if attempt.status == 'succeeded' else '调用失败' }}</td><td>{{ attempt.message }}</td><td class="num">{{ attempt.seconds }}s</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+<article data-analysis-detail data-has-report="{{ 'true' if draft_html else 'false' }}">
+{% if draft_html %}<div class="md">{{ draft_html|safe }}</div>{% endif %}
+</article>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='analysis.js') }}?v=4" defer></script>{% endblock %}

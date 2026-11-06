@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}{{ m.num }} 逐场证据{% endblock %}
+{% block body %}
+<div class="pagehead"><div><div class="eyebrow">{{ analysis_task.business_date }} / {{ m.num }} / {{ m.league }}</div>
+  <h1>{{ m.away if m.sport == 'basketball' else m.home }} VS {{ m.home if m.sport == 'basketball' else m.away }}</h1>
+  <div class="meta">{{ m.kickoff }} · {{ '客队在前、主队在后' if m.sport == 'basketball' else '主队在前、客队在后' }} · 研究时点 {{ item.as_of or '待核' }}</div></div>
+  <a class="btn" href="{{ analysis_task.result_url }}">返回分析任务</a></div>
+{% if not evidence %}
+<div class="notice">{{ item.message }} · 尚无已保存证据</div>
+{% else %}
+<div class="notice">来源及核查状态由智能体记录，尚待人工复核。独立模型未部署，模型概率与EV为null。</div>
+<section class="card"><div class="card-title"><h2>实力假设与反证</h2></div>
+  <div class="evidence-thesis"><div><span class="eyebrow">实力假设</span><p>{{ evidence.hypothesis }}</p></div><div><span class="eyebrow">最强反证</span><p>{{ evidence.counterargument }}</p></div></div>
+  <p class="small secondary">质量缺口：{{ evidence.quality_gaps|join('；') or '未登记额外缺口，仍须人工复核' }}</p>
+  <ul class="small">{% for path in evidence.failure_paths %}<li>{{ path }}</li>{% endfor %}</ul>
+</section>
+<section class="card"><div class="card-title"><h2>23维两队对比</h2><span class="small muted">{{ evidence.sources|length }} 条来源 · 非独立投票</span></div>
+<div class="evidence-matrix">
+  <div class="evidence-row evidence-header"><span>维度与状态</span><span>{{ m.away ~ '（客）' if m.sport == 'basketball' else m.home ~ '（主）' }}</span><span>{{ m.home ~ '（主）' if m.sport == 'basketball' else m.away ~ '（客）' }}</span><span>影响与来源</span></div>
+  {% for dim in evidence.dimensions %}
+  <div class="evidence-row" id="dimension-{{ dim.id }}">
+    <div><b>{{ '%02d'|format(dim.id) }} {{ dimensions[dim.id-1] }}</b><span class="evidence-state state-{{ dim.status }}">{{ statuses[dim.status] }}</span></div>
+    <div><span class="mobile-evidence-label">{{ '客队' if m.sport == 'basketball' else '主队' }}</span>{{ dim.away if m.sport == 'basketball' else dim.home }}</div><div><span class="mobile-evidence-label">{{ '主队' if m.sport == 'basketball' else '客队' }}</span>{{ dim.home if m.sport == 'basketball' else dim.away }}</div>
+    <div class="secondary">{{ dim.impact }}<div class="evidence-refs">{% for source_id in dim.source_ids %}<a href="#source-{{ source_id|urlencode }}">来源 {{ source_id }}</a>{% else %}<span class="muted">无来源，待核</span>{% endfor %}</div></div>
+  </div>{% endfor %}
+</div></section>
+<section class="card"><div class="card-title"><h2>来源记录</h2></div>
+{% for source in evidence.sources %}
+<div class="evidence-source" id="source-{{ source.id|urlencode }}"><div><span class="tag">{{ source.tier }}</span> <b>{{ source.title }}</b></div>
+<a href="{{ source.url }}" target="_blank" rel="noopener noreferrer">{{ source.url }}</a>
+<div class="small muted">发布 {{ source.published_at or '待核' }} · 适用 {{ source.effective_at or '待核' }} · 去重组 {{ source.group_id }}</div></div>
+{% else %}<p class="muted">未保存可核验来源。方向仅按市场基准。</p>{% endfor %}
+</section>
+<section class="card"><div class="card-title"><h2>阵容情景</h2><span class="small muted">条件推演，未赋予概率</span></div>
+{% for scenario in evidence.scenarios %}<div class="evidence-source"><b>{{ scenario.name }}</b><p>条件：{{ scenario.condition }}</p><p>影响：{{ scenario.impact }}</p><p>动作：{{ scenario.action }}</p></div>
+{% else %}<p class="muted">未保存有依据的阵容情景</p>{% endfor %}</section>
+<section class="card"><div class="card-title"><h2>选项研究意见</h2></div>
+{% for opinion in evidence.assessments %}<details class="evidence-opinion"><summary>{{ '否决' if opinion.decision == 'veto' else '条件保留' }} · {{ opinion.option_id }}</summary>
+<ul>{% for reason in opinion.reasons %}<li>{{ reason }}</li>{% endfor %}</ul>
+<p>机制：{{ opinion.mechanism }}</p><p>风险：{{ opinion.risk }}</p><p>撤销：{{ opinion.withdraw_if }}</p></details>
+{% else %}<p class="muted">没有额外选项意见，未知方向明确标记为仅按市场基准。</p>{% endfor %}</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}临场复核任务{% endblock %}
+{% block body %}
+<div class="pagehead"><div><div class="eyebrow">临场复核 / {{ task.id }}</div><h1>临场复核任务</h1><div class="meta">{{ task.created_at }}</div></div><a class="btn" href="/publications/{{ task.publication_id }}">原发布版本</a></div>
+<section class="notice" data-recheck-task="{{ task.id }}" data-has-result="{{ 'true' if result else 'false' }}">
+<b data-recheck-state>{{ {'queued':'排队中','running':'复核中','succeeded':'复核完成','partial':'部分完成','failed':'复核失败','cancelled':'已取消','interrupted':'进程中断'}.get(task.status, task.status) }}</b><p data-recheck-message>{{ task.message }}</p><span class="small muted" data-recheck-connection></span></section>
+{% if task.status in ['queued','running'] and user.role == 'admin' %}
+<form method="post" action="/rechecks/{{ task.id }}/cancel"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" type="submit">{{ icon('square') }}取消复核</button></form>{% endif %}
+{% if result %}
+<div class="notice">原票与原价未改写。变化仅供重审，未自动换腿。实际金额/返还为null。</div>
+<p class="small muted">证据研究范围：{{ result.research_scope }}。</p>
+<section class="card"><div class="card-title"><h2>变化记录</h2><span class="small muted">{{ result.as_of }}</span></div>
+<div class="scroll"><table class="grid"><thead><tr><th>比赛/时段</th><th>情况</th><th>原值</th><th>当前核查</th></tr></thead><tbody>{% for change in result.changes %}<tr><td class="nowrap">{{ change.num }}</td><td><span class="st {{ 'bad' if change.severity == 'critical' else 'warn' if change.severity == 'review' else 'neutral' }}">{{ {'critical':'需撤销或重审','review':'需重审','closed':'已开赛'}.get(change.severity, change.severity) }}</span> {{ change.message }}</td><td>{{ change.before }}</td><td>{{ change.after }}</td></tr>{% else %}<tr><td colspan="4" class="muted">未记录到上述报价变化；不代表阵容或全部风险已经核实。</td></tr>{% endfor %}</tbody></table></div>
+</section>
+<section class="card"><div class="card-title"><h2>待核资料</h2></div>{% for gap in result.gaps %}<p class="small secondary">{{ gap }}</p>{% else %}<p class="small muted">本次没有额外登记缺口，仍需按来源与时点人工复核。</p>{% endfor %}</section>
+{% for finding in result.findings %}
+<details class="evidence-opinion"><summary>{{ finding.num }} 临场证据 · {{ '复用近期记录' if finding.cached else '本次AI返回' }}</summary>
+<p>假设：{{ finding.evidence.hypothesis }}</p><p>反证：{{ finding.evidence.counterargument }}</p>
+{% if finding.ai %}<p class="small muted">实际提供方 {{ finding.ai.provider }} · 返回SHA256 {{ finding.ai.response_sha256 }} · 原研究时点 {{ finding.as_of }}</p>{% endif %}
+{% for dim in finding.evidence.dimensions if dim.id in [4,18] %}<p>{{ '伤停' if dim.id == 4 else '首发' }}：主队 {{ dim.home }}；客队 {{ dim.away }} · {{ dim.status }}</p>{% endfor %}
+{% for source in finding.evidence.sources %}<p><a href="{{ source.url }}" target="_blank" rel="noopener noreferrer">{{ source.title }}</a> · {{ source.published_at or '时点待核' }}</p>{% endfor %}</details>
+{% endfor %}
+{% endif %}
+{% if user.role == 'admin' %}
+<section class="card"><div class="card-title"><h2>智能体执行日志</h2></div><div class="analysis-log-viewport"><ol class="analysis-log-lines" id="recheck-log-lines"></ol></div></section>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='rechecks.js') }}?v=1" defer></script>{% endblock %}

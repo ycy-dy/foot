@@ -1,0 +1,5 @@
+{% extends 'base.html' %}
+{% block title %}完整报告{% endblock %}
+{% block body %}
+<section class="card"><p class="muted small">{{ report.path }}</p><div class="md">{{ report.full_html | safe }}</div></section>
+{% endblock %}

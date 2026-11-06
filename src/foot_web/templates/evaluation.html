@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}分析效果{% endblock %}
+{% block body %}
+<div class="pagehead"><div><div class="eyebrow">研究 / 事前预测与事后验证</div><h1>分析效果</h1><div class="meta">概率评价按去重事件计算，方案命中率另见台账；不补造事前概率。</div></div><a class="btn" href="/stats">台账统计 {{ icon('arrow-up-right') }}</a></div>
+<form class="filters card" method="get">
+<label>月份<select name="month"><option value="">全部</option>{% for month in months %}<option value="{{ month }}" {{ 'selected' if month == evaluation.month }}>{{ month }}</option>{% endfor %}</select></label>
+<label>栏目<select name="group">{% for group in groups %}<option value="{{ group }}" {{ 'selected' if group == evaluation.group }}>{{ group }}</option>{% endfor %}</select></label>
+<label>评价单位<select name="unit"><option value="ticket" {{ 'selected' if evaluation.unit == 'ticket' }}>整单/单场方向</option><option value="leg" {{ 'selected' if evaluation.unit == 'leg' }}>单腿</option></select></label>
+<label>运动<select name="sport">{% for key,label in [('all','全部'),('football','足球'),('basketball','篮球')] %}<option value="{{ key }}" {{ 'selected' if evaluation.sport == key }}>{{ label }}</option>{% endfor %}</select></label>
+<button class="btn" type="submit">{{ icon('list-filter') }}查看</button>
+</form>
+{% set score = evaluation.scores %}
+<div class="tiles evaluation-tiles">
+<div class="tile"><div class="label">可评分事件</div><div class="value">{{ score.scored }}</div><div class="sub">{{ score.records }} 条记录 · 重复 {{ score.duplicates }}</div></div>
+<div class="tile"><div class="label">事前市场基准均值</div><div class="value">{{ score.mean_p_mkt|pct }}</div><div class="sub">固定于原发布记录</div></div>
+<div class="tile"><div class="label">实际命中</div><div class="value">{{ score.hit_rate|pct }}</div><div class="sub">{{ score.hits }}/{{ score.scored }} 去重事件</div></div>
+<div class="tile"><div class="label">缺口</div><div class="value">{{ score.missing_probability }}</div><div class="sub">缺事前概率 · 待定 {{ score.pending }}</div></div>
+</div>
+<div class="notice">独立模型未部署。这里评估的是市场基准及AI选择，不是模型认证。整单概率采用独立近似，共享比赛和时点相关性未处理；不能据此宣称盈利。</div>
+<section class="card"><div class="card-title"><h2>概率误差</h2><span class="small muted">二元事件评分 · 数值越低误差越小</span></div>
+<div class="score-strip"><div><span>二元Brier</span><b>{{ '%.4f'|format(score.brier) if score.brier is not none else '待积累' }}</b></div><div><span>Log loss</span><b>{{ '%.4f'|format(score.log_loss) if score.log_loss is not none else '待积累' }}</b></div><div><span>关联比赛</span><b>{{ score.unique_matches }}</b></div></div>
+<p class="small muted">二元Brier不与历史胜平负三分类Brier直接比较；分数改善不单独证明校准更好。Log loss仅为避免log(0)采用1e-15裁剪，本次涉及 {{ score.clipped }} 个事件。</p>
+<p class="small muted">有AI返回追溯记录 {{ evaluation.ai_traced_records }} 条；历史未保存AI响应 {{ evaluation.legacy_records }} 条。后者不追溯标记为AI成果。</p>
+</section>
+<section class="card"><div class="card-title"><h2>概率分档与实际命中</h2><span class="small muted">描述性统计，共享比赛不视为独立样本</span></div>
+<div class="calibration-legend"><span><i class="prediction"></i>市场基准均值</span><span><i class="observed"></i>实际命中</span></div>
+<div class="calibration-table">
+<div class="calibration-row calibration-heading"><span>事前概率档</span><span>对照</span><span>基准 / 实际</span><span>事件数</span></div>
+{% for row in score.bins %}<div class="calibration-row"><span>{{ row.label }}</span>
+<span class="calibration-bars" aria-label="市场基准 {{ row.mean_p|pct }}，实际命中 {{ row.rate|pct }}">{% if row.n %}<i class="prediction" style="width:{{ '%.2f'|format(row.mean_p*100) }}%"></i><i class="observed" style="width:{{ '%.2f'|format(row.rate*100) }}%"></i>{% endif %}</span>
+<span>{{ row.mean_p|pct }} / {{ row.rate|pct }}</span><span>{{ row.n }}</span></div>{% endfor %}
+</div></section>
+<section class="card"><div class="card-title"><h2>同批时段策略对照</h2><span class="small muted">相同发布时点与官方快照 · 各时段冻结原票，含撤销记录</span></div>
+{% set paired = evaluation.paired %}
+<p class="small secondary">市场基准可形成 {{ paired.baseline_available }} 组；AI实际形成 {{ paired.ai_available }} 组；共同覆盖 {{ paired.matched_periods }} 个时段。</p>
+<div class="scroll"><table class="grid"><thead><tr><th>策略</th><th>共同样本已结算</th><th>命中</th><th>二元Brier</th><th>Log loss</th></tr></thead><tbody>
+{% for label,metrics in [('纯市场规则对照（研究模拟）',paired.baseline),('AI实际选择',paired.ai)] %}
+<tr><td>{{ label }}</td><td>{{ metrics.scored }}</td><td>{{ metrics.hit_rate|pct }}</td><td>{{ '%.4f'|format(metrics.brier) if metrics.brier is not none else '—' }}</td><td>{{ '%.4f'|format(metrics.log_loss) if metrics.log_loss is not none else '—' }}</td></tr>{% endfor %}
+</tbody></table></div>
+<p class="small muted">对照策略只在冻结事前快照上计算，不回填历史推荐、不参与发布或台账分母。两策略均有赛果及事前概率才进入共同评分。覆盖变化与命中变化分别观察，当前结果不证明统计增益。</p>
+{% for gap in paired.gaps %}<p class="small muted">{{ gap }}</p>{% endfor %}
+{% if paired.rows %}<details class="source-note"><summary>逐时段结果</summary><div class="scroll"><table class="grid"><thead><tr><th>日期 / 时段</th><th>市场对照</th><th>AI实际</th></tr></thead><tbody>
+{% for row in paired.rows %}<tr><td><a href="/publications/{{ row.publication_id }}">{{ row.date }} {{ row.period }}</a></td><td>{{ '命中' if row.baseline and row.baseline.hit == true else '未中' if row.baseline and row.baseline.hit == false else '待定' if row.baseline_available else '未形成' }}</td><td>{{ '命中' if row.ai and row.ai.hit == true else '未中' if row.ai and row.ai.hit == false else '待定' if row.ai_available else '未形成' }}</td></tr>{% endfor %}
+</tbody></table></div></details>{% endif %}
+</section>
+{% if evaluation.by_market %}<section class="card"><div class="card-title"><h2>按玩法拆分</h2></div><div class="scroll"><table class="grid"><thead><tr><th>玩法</th><th>事件数</th><th>命中</th><th>二元Brier</th><th>Log loss</th></tr></thead><tbody>{% for market,metrics in evaluation.by_market.items() %}<tr><td>{{ market }}</td><td>{{ metrics.scored }}</td><td>{{ metrics.hit_rate|pct }}</td><td>{{ '%.4f'|format(metrics.brier) if metrics.brier is not none else '—' }}</td><td>{{ '%.4f'|format(metrics.log_loss) if metrics.log_loss is not none else '—' }}</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
+{% endblock %}

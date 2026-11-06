@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block title %}审核与发布 · {{ analysis_task.business_date }}{% endblock %}
+{% block body %}
+<div class="pagehead"><div><div class="eyebrow">{{ analysis_task.business_date }} / {{ analysis_task.id }}</div><h1>审核与发布</h1><div class="meta">低置信度条件研究 · 发布前重新核对官方数据</div></div><a class="btn" href="{{ analysis_task.result_url }}">返回分析任务</a></div>
+{% if error %}<div class="notice err" role="alert">{{ error }}</div>{% endif %}
+{% if not draft %}
+<div class="notice">尚无完整结构化草稿。请先完成逐场研究；旧任务需要重新分析。</div>
+{% else %}
+<section class="card"><div class="card-title"><h2>AI推荐决策来源</h2></div>
+{% if bundle.ai_decision %}<p>{{ bundle.ai_summary }}</p>
+<p class="small secondary">提供方 {{ bundle.ai_decision.provider }} · 已验证真实AI返回；市场基准不是模型概率</p>
+<details class="source-note"><summary>输入/返回哈希与提供方尝试</summary><pre>输入 {{ bundle.ai_decision.input_sha256 }}
+返回 {{ bundle.ai_decision.response_sha256 }}
+决策 {{ bundle.ai_decision.validated_sha256 }}
+{% for attempt in bundle.ai_decision.attempts %}{{ attempt.provider }} / {{ attempt.status }} / {{ attempt.code }}
+{% endfor %}</pre></details>
+{% else %}<p class="notice err">缺少AI推荐决策，旧草稿不可发布，请重新分析。</p>{% endif %}
+</section>
+<section class="card"><div class="card-title"><h2>发布门禁</h2>
+<span class="st {{ 'good' if checked and checked.passed else 'bad' if checked else 'neutral' }}">{{ '机器门禁通过 · 待人工确认' if checked and checked.passed else '未通过' if checked else '待审核' }}</span></div>
+{% if checked %}<p class="small muted">审核时点 {{ checked.created_at }} · {{ checked.id }}</p>
+{% for problem in checked.errors %}<div class="audit-problem">{{ icon('shield-check') }}<span>{{ problem }}</span></div>{% endfor %}
+{% for note in checked.notes %}<p class="small secondary">{{ note }}</p>{% endfor %}
+<details class="source-note"><summary>审核脚本执行记录 · 退出码 {{ checked.script.exit_code if checked.script.exit_code is not none else '未完成' }}</summary><pre>{{ checked.script.output }}</pre></details>
+{% endif %}
+<div class="audit-actions">
+<form method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="audit">
+<button class="btn" type="submit">{{ icon('refresh-cw') }}刷新官方数据并审核</button></form>
+{% if checked and checked.passed %}
+<form method="post" class="publish-form"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="publish"><input type="hidden" name="check_id" value="{{ checked.id }}">
+<label><input type="checkbox" name="confirmed" required>我已核对证据来源、时点及撤销条件</label>
+<button class="btn primary" type="submit">{{ icon('shield-check') }}发布新版本</button></form>
+{% endif %}
+</div>
+</section>
+{% if checked and checked.changes %}
+<section class="card"><div class="card-title"><h2>与草稿报价的变化</h2></div><div class="scroll"><table class="grid"><thead><tr><th>比赛</th><th>方向</th><th>草稿</th><th>本次官方报价</th></tr></thead><tbody>
+{% for row in checked.changes %}<tr><td>{{ row.num }}</td><td>{{ row.label }}</td><td>{{ row.before|join('／') }}</td><td>{{ row.after|join('／') }}</td></tr>{% endfor %}
+</tbody></table></div></section>{% endif %}
+<section class="card"><div class="card-title"><h2>本次候选方案</h2><span class="small muted">市场基准，独立近似；模型概率/EV为null</span></div>
+{% for period in bundle.periods %}
+<div class="audit-period"><h3>{{ period.name }}</h3>
+{% if period.group %}<div class="small secondary">整单实际倍数 {{ period.group.effective_multiples|join('／') }} · 联合市场基准 {{ period.group.p_mkt_joint|pct }} · 独立近似</div>
+{% for leg in period.group.legs %}
+<div class="audit-leg"><b>{{ leg.num }} {{ leg.matchup }}</b><p>{{ leg.label }} {% for option in leg.options %}{{ option.label }}@{{ option.odds }} {% endfor %} · p_mkt {{ leg.p_mkt|pct }}</p>
+<ul>{% for reason in leg.reasons %}<li>{{ reason }}</li>{% endfor %}</ul>
+<p class="secondary">风险：{{ leg.risk }}；撤销：{{ leg.withdraw_if }}</p>
+{% for source in leg.sources %}<a class="small" href="{{ source.url }}" target="_blank" rel="noopener noreferrer">{{ source.title }}</a>{% else %}<span class="tag">仅按市场基准</span>{% endfor %}
+</div>{% endfor %}
+{% else %}<p class="muted">{{ period.reason }}</p>
+{% for row in bundle.singles if row.period_name == period.name %}<div class="audit-leg"><b>{{ row.leg.num }} {{ row.leg.matchup }}</b><p>{{ row.leg.label }} {% for option in row.leg.options %}{{ option.label }}@{{ option.odds }} {% endfor %} · p_mkt {{ row.leg.p_mkt|pct }}</p><ul>{% for reason in row.leg.reasons %}<li>{{ reason }}</li>{% endfor %}</ul><p class="secondary">风险：{{ row.leg.risk }}；撤销：{{ row.leg.withdraw_if }}</p></div>{% endfor %}
+{% endif %}
+</div>{% endfor %}
+<div class="audit-period"><h3>六类方向</h3><div class="scroll"><table class="grid"><thead><tr><th>类别</th><th>方向</th><th>市场基准</th><th>依据状态</th></tr></thead><tbody>
+{% for row in bundle.six %}<tr><td>{{ row.category }}</td><td>{% if row.leg %}{{ row.leg.num }} {{ row.leg.matchup }} · {{ row.leg.label }}{% for o in row.leg.options %} @{{ o.odds }}{% endfor %}<details><summary>AI返回理由与风险</summary><ul>{% for reason in row.leg.reasons %}<li>{{ reason }}</li>{% endfor %}</ul><p>风险：{{ row.leg.risk }}；撤销：{{ row.leg.withdraw_if }}</p></details>{% else %}{{ row.reason }}{% endif %}</td><td>{{ row.leg.p_mkt|pct if row.leg else '—' }}</td><td>{{ '有来源，待人工复核' if row.leg and row.leg.sources else '仅按市场基准/不可用' }}</td></tr>{% endfor %}
+</tbody></table></div></div>
+<div class="audit-period"><h3>比分4串1梦想单</h3>{% for leg in bundle.dream_legs %}<p class="small">{{ leg.num }} {{ leg.matchup }} · {{ leg.label }}@{{ leg.options[0].odds }} · p_mkt {{ leg.p_mkt|pct }}</p><ul>{% for reason in leg.reasons %}<li>{{ reason }}</li>{% endfor %}</ul><p class="small secondary">风险：{{ leg.risk }}；撤销：{{ leg.withdraw_if }}</p>{% else %}<p class="muted">{{ bundle.dream_reason }}</p>{% endfor %}</div>
+</section>
+{% endif %}
+{% endblock %}

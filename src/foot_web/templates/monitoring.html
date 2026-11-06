@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block title %}临场复核{% endblock %}
+{% block body %}
+<div class="pagehead"><div><div class="eyebrow">运行管理 / 赛前变化</div><h1>临场复核</h1><div class="meta">跟踪当前发布版本；记录变化，保留原票。</div></div></div>
+{% if error %}<div class="notice err">{{ error }}</div>{% endif %}
+<section class="card"><div class="card-title"><h2>自动复核设置</h2><span class="st {{ 'good' if settings.enabled else 'neutral' }}">{{ '已启用' if settings.enabled else '未启用' }}</span></div>
+<form method="post" class="monitor-settings">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<label class="monitor-toggle"><input type="checkbox" name="enabled" value="1" {{ 'checked' if settings.enabled }}>启用当前报告的临场监控</label>
+<div class="filters"><label>开赛前开始（分钟）<input type="number" name="lead_minutes" value="{{ settings.lead_minutes }}" min="15" max="180" required></label>
+<label>复核间隔（分钟）<input type="number" name="interval_minutes" value="{{ settings.interval_minutes }}" min="5" max="60" required></label></div>
+<label class="monitor-toggle"><input type="checkbox" name="lineup_enabled" value="1" {{ 'checked' if settings.lineup_enabled }}>补核首发与伤停（调用Claude/Codex，消耗账户额度）</label>
+<button class="btn primary" type="submit">{{ icon('shield-check') }}保存设置</button>
+</form><p class="small muted">未启用时不自动提交复核。停用不终止已提交任务；正式首发查不到时保留待核，不当作已确认变化。</p>
+</section>
+<section class="card"><div class="card-title"><h2>复核记录</h2></div><div class="scroll"><table class="grid"><thead><tr><th>创建时间</th><th>状态</th><th>情况</th><th>详情</th></tr></thead><tbody>
+{% for task in tasks %}<tr><td class="nowrap">{{ task.created_at[:19]|replace('T',' ') }}</td><td>{{ {'queued':'排队中','running':'复核中','succeeded':'复核完成','partial':'部分完成','failed':'复核失败','cancelled':'已取消','interrupted':'进程中断'}.get(task.status, task.status) }}</td><td>{{ task.message }}</td><td><a href="/rechecks/{{ task.id }}">查看</a></td></tr>{% else %}<tr><td colspan="4" class="muted">暂无复核任务。也可在当前报告页手动发起。</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endblock %}

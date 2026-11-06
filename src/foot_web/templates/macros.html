@@ -1,0 +1,66 @@
+{% macro meter(p, label='市场基准命中概率') -%}
+<div class="meter" title="{{ label }} {{ p|pct }}"><div class="track"><div class="fill" style="width:{{ p|pctw }}%"></div></div><span class="num">{{ p|pct }}</span></div>
+{%- endmacro %}
+
+{% macro state(s) -%}
+{% if s == 'hit' %}<span class="st good">✓ 命中</span>{% elif s == 'miss' %}<span class="st bad">✗ 未中</span>{% else %}<span class="st warn">⏳ 待赛</span>{% endif %}
+{%- endmacro %}
+
+{% macro gate(ok) -%}
+{% if ok %}<span class="st good">✓ 审核项通过</span>{% else %}<span class="st bad">✗ 未过门槛</span>{% endif %}
+{%- endmacro %}
+
+{% macro hadbar(m) -%}
+{% if m.had.p %}
+<div class="segbar" role="img" aria-label="胜平负市场基准：主胜{{ m.had.p.h|pct }}，平{{ m.had.p.d|pct }}，客胜{{ m.had.p.a|pct }}">
+  <span class="s1" style="width:{{ m.had.p.h|pctw }}%" title="主胜 {{ m.had.p.h|pct }} @{{ m.had.prices.h }}"></span>
+  <span class="s2" style="width:{{ m.had.p.d|pctw }}%" title="平 {{ m.had.p.d|pct }} @{{ m.had.prices.d }}"></span>
+  <span class="s3" style="width:{{ m.had.p.a|pctw }}%" title="客胜 {{ m.had.p.a|pct }} @{{ m.had.prices.a }}"></span>
+</div>
+<div class="seglegend"><span class="s1"><i></i>主胜 @{{ m.had.prices.h }} · {{ m.had.p.h|pct }}</span><span class="s2"><i></i>平 @{{ m.had.prices.d }} · {{ m.had.p.d|pct }}</span><span class="s3"><i></i>客胜 @{{ m.had.prices.a }} · {{ m.had.p.a|pct }}</span></div>
+{% else %}<p class="muted small">胜平负未开售</p>{% endif %}
+{%- endmacro %}
+
+{% macro mnlbar(m) -%}
+{% if m.mnl.p %}
+<div class="segbar" role="img" aria-label="胜负市场基准：客胜{{ m.mnl.p.a|pct }}，主胜{{ m.mnl.p.h|pct }}">
+  <span class="s1" style="width:{{ m.mnl.p.a|pctw }}%" title="客胜 {{ m.mnl.p.a|pct }}"></span>
+  <span class="s3" style="width:{{ m.mnl.p.h|pctw }}%" title="主胜 {{ m.mnl.p.h|pct }}"></span>
+</div>
+<div class="seglegend"><span class="s1"><i></i>客胜 @{{ m.mnl.prices.a }} · {{ m.mnl.p.a|pct }}</span><span class="s3"><i></i>主胜 @{{ m.mnl.prices.h }} · {{ m.mnl.p.h|pct }}</span></div>
+{% endif %}
+{%- endmacro %}
+
+{% macro leg_row(l, sport='football') -%}
+<div class="leg">
+  <span class="num">{{ l.num }}</span>
+  <span><span class="team">{% if sport == 'football' %}{{ l.home }} <span class="muted">VS</span> {{ l.away }}{% else %}{{ l.away }}<span class="muted">（客）VS</span> {{ l.home }}<span class="muted">（主）</span>{% endif %}</span>
+    <span class="muted small"> {{ l.kickoff[5:] }}</span><br><span class="pick">{{ l.opt.label }}</span></span>
+  <span class="odds">{% for b in l.opt.branches %}{{ b.label }}@{{ b.odds }}{% if not loop.last %}／{% endif %}{% endfor %} · p {{ l.opt.p|pct }}</span>
+</div>
+{%- endmacro %}
+
+{% macro combo(c, idx, sport='football') -%}
+<div class="combo {{ 'top' if idx == 0 }}">
+  <div class="combo-head">
+    <span><span class="rank">#{{ idx + 1 }}</span> {{ c.struct }}</span>
+    {{ gate(c.gate_ok) }}
+  </div>
+  {{ leg_row(c.legs[0], sport) }}{{ leg_row(c.legs[1], sport) }}
+  <div class="combo-foot">
+    <span>组合赔率 <b>{{ c.prods|join('／') }}</b>{% if c.branches > 1 %}（{{ c.branches }}分支，整单实际倍数 <b>{{ c.eff|join('／') }}</b>）{% endif %}</span>
+    <span style="flex:1;min-width:180px">联合p（独立近似）{{ meter(c.p) }}</span>
+  </div>
+</div>
+{%- endmacro %}
+
+{% macro record(r) -%}
+<div class="combo">
+  <div class="combo-head"><span><b>{{ r.title }}</b> <span class="tag">{{ r.kind }}</span>{% if r.superseded %} <span class="tag">已替代</span>{% endif %}</span>{{ state(r.state) }}</div>
+  {% for l in r.settled_legs or r.legs %}
+  <div class="leg"><span class="num">{{ l.number }}</span><span>{{ l.matchup }}<br><span class="pick">{% for o in l.options %}{{ o.label }}@{{ o.odds }}{% if not loop.last %}／{% endif %}{% endfor %}</span></span>
+  <span class="odds">{% if l.score %}{% if l.half %}半{{ l.half }} {% endif %}全{{ l.score }} {% if l.hit %}✓{% elif l.hit == false %}✗{% endif %}{% else %}待赛{% endif %}</span></div>
+  {% endfor %}
+  <div class="combo-foot"><span>{{ r.status_label }}</span>{% if r.legs_total %}<span>腿 {{ r.legs_hit }}/{{ r.legs_total }}</span>{% endif %}<span>模拟 {{ r.sim_cost }} 元 → 理论返还 {{ r.theoretical_return if r.theoretical_return is not none else '—' }}</span></div>
+</div>
+{%- endmacro %}

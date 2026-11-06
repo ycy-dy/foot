@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: foot-web
+Version: 0.1.0
+Summary: 竞彩足球/篮球分析推荐 Web 系统（钉钉登录、今日赛程、Claude Agent 分析）
+Requires-Python: >=3.12
+Requires-Dist: flask>=3.1
+Requires-Dist: requests>=2.32
+Requires-Dist: gunicorn>=23
+Requires-Dist: markdown>=3.7
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"

@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% import 'macros.html' as ui %}
+{% block title %}历史推荐 {{ bd }}{% endblock %}
+{% block body %}
+<div class="pagehead">
+  <div><h1>历史推荐查询</h1><div class="meta">按业务日查看当天发布的全部方案（含已被替代的版本）和结算结果。</div></div>
+  <div class="actions history-actions">
+    <form class="actions" method="get"><input type="date" name="date" value="{{ bd }}" class="chip" style="cursor:text" aria-label="查看业务日"><button class="btn">查看</button></form>
+    {% if user.role == 'admin' and can_review %}
+    {% if review_task and review_task.status in ['queued','running'] %}
+    <a class="btn primary" id="history-review-progress" href="/reviews/{{ review_task.id }}">{{ icon('history') }}查看复盘进度</a>
+    {% else %}
+    <form method="post" action="/reviews" id="history-review-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="date" value="{{ bd }}"><input type="hidden" name="origin" value="history">
+      <button type="submit" class="btn primary" id="history-review-start" title="复盘{{ bd }}的原推荐并更新结算结果">{{ icon('history') }}复盘并更新结果</button>
+    </form>
+    {% endif %}{% endif %}
+  </div>
+</div>
+{% if review_task %}
+<section class="notice" data-review-status="{{ review_task.id }}" data-refresh-on-finish="true" data-has-report="{{ 'false' if review_task.status in ['queued','running'] else 'true' }}">
+  <b>{{ bd }}复盘 · <span data-task-state>{{ {'queued':'排队中','running':'复盘中','succeeded':'已更新结果','failed':'复盘未完成','interrupted':'进程中断'}.get(review_task.status, review_task.status) }}</span></b>
+  <p data-task-message>{{ review_task.message }}</p><span class="small muted">更新 <span data-task-updated>{{ review_task.updated_at }}</span> · <span data-poll-state>{{ '完成后自动刷新推荐结果' if review_task.status in ['queued','running'] else '原推荐保留，待定结果不计为未中' }}</span></span>
+  <a class="text-action" href="/reviews/{{ review_task.id }}">查看复盘与日志 {{ icon('arrow-up-right') }}</a>
+</section>
+{% endif %}
+<div class="card"><div class="small secondary" style="margin-bottom:6px">有记录的业务日：</div>
+  {% for d in dates %}<a class="chip {{ 'on' if d == bd }}" href="/history?date={{ d }}">{{ d[5:] }}</a>{% endfor %}</div>
+{% if bd %}
+<div class="tiles">
+  <div class="tile"><div class="label">{{ bd }} 当前版本方案</div><div class="value">{{ summary.n }}</div><div class="sub">已结算 {{ summary.settled }} · 待赛 {{ summary.pending }}</div></div>
+  <div class="tile"><div class="label">命中</div><div class="value">{{ summary.hit }}/{{ summary.settled }}</div><div class="sub">命中率 {{ summary.rate|pct }}</div></div>
+  <div class="tile"><div class="label">报告</div><div class="value" style="font-size:15px">{% if report %}<a href="/report?date={{ bd }}">查看当日报告 →</a>{% else %}<span class="muted">无</span>{% endif %}</div><div class="sub">{{ report.path if report else '' }}</div></div>
+</div>
+{% for g, kinds in groups.items() %}
+  {% set gr = rows|selectattr('group', 'equalto', g)|list %}
+  {% if gr %}<h2 class="section">{{ g }}（{{ gr|length }}）</h2><div class="grid2">{% for r in gr %}{{ ui.record(r) }}{% endfor %}</div>{% endif %}
+{% endfor %}
+{% if not rows %}<p class="muted">该业务日没有台账记录。</p>{% endif %}
+{% endif %}
+{% endblock %}
+{% block scripts %}{% if review_task %}<script src="{{ url_for('static', filename='reviews.js') }}?v=3" defer></script>{% endif %}{% endblock %}

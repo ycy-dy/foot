@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}登录 - 竞彩分析推荐{% endblock %}
+{% block body %}
+<section class="card login">
+  <span class="login-mark">{{ icon('shield-check') }}</span>
+  <div class="eyebrow">竞彩分析推荐</div>
+  <h1>钉钉登录</h1>
+  <p class="secondary">仅白名单内的企业成员可以访问。</p>
+  {% if error %}<p class="err">{{ error }}</p>{% endif %}
+  {% if configured %}
+  <a class="btn primary lg" href="/auth/dingtalk/begin">使用钉钉登录 {{ icon('arrow-up-right') }}</a>
+  {% elif not error %}
+  <p class="err">钉钉登录尚未配置（检查 .env）。</p>
+  {% endif %}
+</section>
+{% endblock %}

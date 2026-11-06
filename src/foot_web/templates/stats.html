@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% import 'macros.html' as ui %}
+{% block title %}命中率统计{% endblock %}
+{% block body %}
+<div class="pagehead">
+  <div><h1>命中率统计</h1><div class="meta">口径：只统计当前版本；分母只计已结算，待赛单列；理论回报率只计投入与返还均可核验的模拟单位，缺赔率不按零返还计算；不是真实收支。</div></div>
+  <div class="actions">{% for m in months %}<a class="chip {{ 'on' if m == month }}" href="/stats?month={{ m }}">{{ m }}</a>{% endfor %}<a class="chip {{ 'on' if not month }}" href="/stats?month=all">全部</a></div>
+</div>
+<h2 class="section">{{ month or '全部' }} 概览</h2>
+<div class="tiles">
+  {% for g, s in st.by_group.items() %}
+  <div class="tile"><div class="label">{{ g }}</div><div class="value">{{ s.rate|pct }}</div><div class="sub">{{ s.hit }}/{{ s.settled }} 命中 · 待赛 {{ s.pending }}{% if s.legs_total %} · 单腿 {{ s.leg_rate|pct }}{% endif %}</div></div>
+  {% endfor %}
+</div>
+<div class="card">
+  <div class="card-title"><h3>分类别命中率</h3><span class="muted small">{{ month or '全部' }}</span></div>
+  <div class="scroll"><table class="grid"><thead><tr><th>栏目</th><th>类别</th><th class="num">命中/已结算</th><th style="min-width:220px">命中率</th><th class="num">单腿</th><th class="num">理论回报率</th></tr></thead><tbody>
+  {% for k, s in st.by_kind.items() %}{% if s.n %}
+  <tr><td class="nowrap muted">{% for g, ks in groups.items() if k in ks %}{{ g }}{% endfor %}</td><td class="nowrap"><b>{{ k }}</b></td><td class="num">{{ s.hit }}/{{ s.settled }}{% if s.pending %}<span class="muted small">（待{{ s.pending }}）</span>{% endif %}</td><td>{% if s.rate is not none %}{{ ui.meter(s.rate, '历史已结算命中率') }}{% else %}<span class="muted">—</span>{% endif %}</td><td class="num">{{ s.leg_rate|pct }}</td><td class="num">{{ s.roi|pct }}{% if s.return_pending %}<br><span class="muted small">{{ s.return_pending }} 张返还待核，未计收益</span>{% endif %}</td></tr>
+  {% endif %}{% endfor %}
+  </tbody></table></div>
+</div>
+<div class="card">
+  <div class="card-title"><h3>按月统计</h3><span class="muted small">命中/已结算（命中率）</span></div>
+  <div class="scroll"><table class="grid"><thead><tr><th>月份</th>{% for g in groups %}<th class="num">{{ g }}</th>{% endfor %}</tr></thead><tbody>
+  {% for m, gs in all_st.monthly.items() %}
+  <tr><td><a href="/stats?month={{ m }}">{{ m }}</a></td>{% for g, s in gs.items() %}<td class="num">{{ s.hit }}/{{ s.settled }}<br><span class="muted small">{{ s.rate|pct }}</span></td>{% endfor %}</tr>
+  {% endfor %}
+  </tbody></table></div>
+</div>
+<div class="card">
+  <div class="card-title"><h3>最终推荐逐日结果</h3><span class="muted small">足球与篮球最终串</span></div>
+  <div class="scroll"><table class="grid"><thead><tr><th>日期</th><th>方案</th><th>状态</th><th class="num">腿</th><th class="num">模拟→理论返还</th></tr></thead><tbody>
+  {% for d, rs in st.daily %}{% for r in rs %}
+  <tr><td class="nowrap">{% if loop.first %}<a href="/history?date={{ d }}">{{ d }}</a>{% endif %}</td><td>{{ r.title }}<br><span class="muted small">{% for l in r.legs %}{{ l.number }} {% for o in l.options %}{{ o.label }}@{{ o.odds }}{% if not loop.last %}／{% endif %}{% endfor %}{% if not loop.last %} ＋ {% endif %}{% endfor %}</span></td><td>{{ ui.state(r.state) }}</td><td class="num">{{ r.legs_hit }}/{{ r.legs_total }}</td><td class="num">{{ r.sim_cost }}→{{ r.theoretical_return if r.theoretical_return is not none else '—' }}</td></tr>
+  {% endfor %}{% endfor %}
+  </tbody></table></div>
+</div>
+{% endblock %}

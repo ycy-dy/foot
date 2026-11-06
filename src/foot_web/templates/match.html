@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% import 'macros.html' as ui %}
+{% block title %}{{ m.num }} 详情{% endblock %}
+{% block body %}
+<div class="pagehead">
+  <div>
+    {% if m.sport == 'football' %}<h1>{{ m.num }} {{ m.home }} <span class="muted">VS</span> {{ m.away }}</h1>
+    {% else %}<h1>{{ m.num }} {{ m.away }}<span class="muted">（客）VS</span> {{ m.home }}<span class="muted">（主）</span></h1>{% endif %}
+    <div class="meta">{{ m.league }} · {{ m.kickoff }} · 业务日 {{ m.business_date }} · {{ m.status }} · 数据 {{ meta.source_update or '—' }}</div>
+  </div>
+  <a class="btn" href="/?date={{ m.business_date }}#matches">← 返回逐场分析</a>
+</div>
+<div class="grid2">
+<div class="card">
+  <div class="card-title"><h3>合规选项排序</h3><span class="muted small">在售、可过关{% if m.sport == 'football' %}、单项≥1.33{% endif %}</span></div>
+  {% if m.sport == 'football' %}{{ ui.hadbar(m) }}{% else %}{{ ui.mnlbar(m) }}{% endif %}
+  <div class="scroll"><table class="grid" style="margin-top:8px"><thead><tr><th>玩法</th><th>选项</th><th class="num">赔率</th><th style="min-width:160px">p</th></tr></thead><tbody>
+  {% for o in m.options %}<tr><td>{{ o.category or o.code }}</td><td><b>{{ o.label }}</b></td><td class="num">{% for b in o.branches %}{{ b.odds }}{% if not loop.last %}/{% endif %}{% endfor %}</td><td>{{ ui.meter(o.p) }}</td></tr>
+  {% else %}<tr><td colspan="4" class="muted">无合规选项</td></tr>{% endfor %}
+  </tbody></table></div>
+</div>
+<div>
+{% macro mk(title, mkt, labels) %}
+<div class="card">
+  <div class="card-title"><h3>{{ title }}{% if mkt.line %}（{{ mkt.line }}）{% endif %}</h3>
+    <span>{% if mkt.selling %}<span class="st good">● 在售</span>{% else %}<span class="st neutral">未售</span>{% endif %} {% if mkt.allup %}<span class="tag">可过关</span>{% endif %}{% if mkt.single %}<span class="tag">单关</span>{% endif %}</span></div>
+  {% if mkt.p %}
+  <div class="scroll"><table class="grid"><tr>{% for k, lab in labels %}<th class="num">{{ lab }}</th>{% endfor %}</tr>
+  <tr>{% for k, lab in labels %}<td class="num"><b>{{ mkt.prices[k] }}</b><br><span class="muted small">{{ mkt.p[k]|pct }}</span></td>{% endfor %}</tr></table></div>
+  <div class="muted small">更新 {{ mkt.update }}</div>
+  {% else %}<p class="muted">未开售或报价不完整</p>{% endif %}
+</div>
+{% endmacro %}
+{% if m.sport == 'football' %}
+  {{ mk('胜平负', m.had, [('h','主胜'),('d','平'),('a','客胜')]) }}
+  {{ mk('让球（主队）', m.hhad, [('h','让胜'),('d','让平'),('a','让负')]) }}
+  {{ mk('总进球', m.ttg, [('s0','0'),('s1','1'),('s2','2'),('s3','3'),('s4','4'),('s5','5'),('s6','6'),('s7','7+')]) }}
+  {{ mk('半全场', m.hafu, hafu_lbl.items()|list) }}
+  <div class="card"><div class="card-title"><h3>比分（p最高8个）</h3></div>
+  {% if m.crs.p %}<div class="scroll"><table class="grid"><tr>
+  {% for k, p in (m.crs.p.items()|sort(attribute='1', reverse=True))[:8] %}<td class="num">{% if k[1:3].isdigit() %}<b>{{ k[1:3]|int }}:{{ k[4:6]|int }}</b>{% else %}{{ k }}{% endif %}<br>@{{ m.crs.prices[k] }}<br><span class="muted small">{{ p|pct }}</span></td>{% endfor %}
+  </tr></table></div>{% else %}<p class="muted">未开售</p>{% endif %}</div>
+{% else %}
+  {{ mk('胜负', m.mnl, [('a','客胜'),('h','主胜')]) }}
+  {{ mk('让分（主队）', m.hdc, [('h','让胜'),('a','让负')]) }}
+  {{ mk('大小分', m.hilo, [('h','大分'),('l','小分')]) }}
+{% endif %}
+</div>
+</div>
+<p class="muted small">23维证据、伤停核查与推荐理由以已审核发布的分析报告为准。</p>
+{% endblock %}

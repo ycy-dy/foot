@@ -1,0 +1,31 @@
+[project]
+name = "foot-web"
+version = "0.1.0"
+description = "竞彩足球/篮球分析推荐 Web 系统（钉钉登录、今日赛程、Claude Agent 分析）"
+requires-python = ">=3.12"
+dependencies = [
+  "flask>=3.1",
+  "requests>=2.32",
+  "gunicorn>=23",
+  "markdown>=3.7",
+  "bleach>=6.2",
+  "pyyaml>=6.0.2",
+  "jsonschema>=4.23",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+foot_web = ["templates/*.html", "static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

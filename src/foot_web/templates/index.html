@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+{% import 'macros.html' as ui %}
+{% block title %}{{ bd }} {{ week }} · 今日推荐{% endblock %}
+{% block body %}
+<div class="pagehead">
+  <div>
+    <div class="eyebrow">每日研究 / {{ bd }} {{ week }}</div>
+    <h1 aria-label="{{ bd }} {{ week }} 今日推荐"><span class="sr-only">{{ bd }} {{ week }} </span>今日推荐</h1>
+    <div class="meta snapshot-meta">{{ icon('clock-3') }}<span>足球 {{ fb_meta.source_update or '待核' }} · 篮球 {{ bk_meta.source_update or '待核' }}</span>
+      {% if fb_meta.stale or bk_meta.stale %}<span class="st warn">最近快照 · 实时抓取失败</span>{% endif %}</div>
+  </div>
+  <div class="actions">
+    <label class="date-select">{{ icon('calendar-days') }}<span class="sr-only">业务日</span><select data-date-select>{% for d in dates %}<option value="{{ d }}" {{ 'selected' if d == bd }}>{{ d }}</option>{% else %}<option value="{{ bd }}">{{ bd }}</option>{% endfor %}</select></label>
+    {% if user.role == 'admin' %}
+    <button class="btn primary" id="btn-recompute" data-analysis-date="{{ bd }}" title="使用 Claude 分析，调用失败时自动回退 Codex">{{ icon('refresh-cw') }}<span>重新分析</span></button>
+    {% include 'analysis_stop_button.html' %}
+    {% endif %}
+  </div>
+</div>
+{% if error %}<div class="notice">{{ error }}</div>{% endif %}
+{% if user.role == 'admin' %}{% include 'analysis_status.html' %}{% endif %}
+
+{% set fr = month_stats['最终推荐'] %}{% set sx = month_stats['六类方向'] %}
+<div class="tiles">
+  <div class="tile"><div class="label">足球赛程<span class="stat-icon">{{ icon('goal') }}</span></div><div class="value">{{ counts.fb }}<span class="value-unit">场</span></div><div class="sub"><span class="status-dot"></span>在售 {{ counts.fb_sell }} 场</div></div>
+  <div class="tile"><div class="label">篮球赛程<span class="stat-icon">{{ icon('circle-dot') }}</span></div><div class="value">{{ counts.bk }}<span class="value-unit">场</span></div><div class="sub"><span class="status-dot"></span>在售 {{ counts.bk_sell }} 场</div></div>
+  <div class="tile"><div class="label">最终推荐命中<span class="stat-period">{{ month }}</span></div><div class="value">{{ fr.rate|pct }}</div><div class="sub">{{ fr.hit }}/{{ fr.settled }} 已结算 · 待赛 {{ fr.pending }}</div></div>
+  <div class="tile"><div class="label">六类方向命中<span class="stat-period">{{ month }}</span></div><div class="value">{{ sx.rate|pct }}</div><div class="sub">{{ sx.hit }}/{{ sx.settled }} 已结算 · 待赛 {{ sx.pending }}</div></div>
+</div>
+
+<div class="tabs" role="tablist" aria-label="今日研究视图">
+  {% for name, glyph, label in [('overview','layout-dashboard','总览'),('football','goal','足球推荐'),('basketball','circle-dot','篮球推荐'),('structures','layers','八结构推荐'),('six','list-filter','六类方向'),('matches','rows-3','逐场分析')] %}
+  <button type="button" role="tab" id="tab-{{ name }}" data-tab="{{ name }}" aria-controls="panel-{{ name }}" aria-selected="{{ 'true' if loop.first else 'false' }}" tabindex="{{ '0' if loop.first else '-1' }}" class="{{ 'on' if loop.first }}">{{ icon(glyph) }}{{ label }}</button>
+  {% endfor %}
+</div>
+
+{# ---------------- 总览 ---------------- #}
+<section class="panel on" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" tabindex="0">
+  <div class="card">
+    <div class="card-title"><div><span class="eyebrow">{{ '已发布' if report and report.summary_html else '未发布' }} / {{ bd }}</span><h2>最终推荐汇总</h2></div>{% if report %}<a class="text-action" href="/report?date={{ bd }}">完整报告 {{ icon('arrow-up-right') }}</a>{% endif %}</div>
+    {% if report and report.summary_html %}
+      <div class="md published-summary">{{ report.summary_html | safe }}</div>
+      <details class="source-note"><summary>报告来源与快照</summary><span>{{ report.path }} · 抓取 {{ (fb_meta.captured_at or '待核')[:19] }}</span></details>
+    {% else %}
+      <div class="empty-state">{{ icon('file-text') }}<h3>暂无已发布推荐</h3><p>本业务日尚未完成深度分析与发布审核。</p><a class="text-action" href="#football">足球市场候选 {{ icon('arrow-up-right') }}</a></div>
+    {% endif %}
+  </div>
+  {% if published %}
+  <h2 class="section">今日已登记台账（{{ published|length }}条）</h2>
+  <div class="grid2">{% for r in published %}{{ ui.record(r) }}{% endfor %}</div>
+  {% endif %}
+</section>
+
+{# ---------------- 足球推荐 ---------------- #}
+<section class="panel" id="panel-football" role="tabpanel" aria-labelledby="tab-football" tabindex="0" hidden>
+  <div class="notice">下面是按 V6 规则实时算出的<b>市场候选排序</b>：已执行单项≥1.33、八结构、整单实际倍数>2.5，并按联合p排序。它还没有核查伤停和首发，也没有推荐理由，不等于正式推荐。正式推荐见“总览”。</div>
+  {% for f in result.football %}
+  <div class="card">
+    <div class="card-title"><h3>足球{{ f.name }}</h3><span class="muted small">{{ f.note }}</span></div>
+    {% for p in published if p.kind == '足球最终串' and (f.name[:3] in p.title or f.name[:2] in p.title) %}
+      <p class="small secondary">已发布：</p>{{ ui.record(p) }}
+    {% endfor %}
+    {% if f.candidates %}
+      <p class="small secondary">市场候选 Top {{ f.candidates|length }}：</p>
+      {% for c in f.candidates %}{{ ui.combo(c, loop.index0) }}{% endfor %}
+    {% else %}<p class="muted">{{ f.reason }}</p>{% endif %}
+  </div>
+  {% endfor %}
+</section>
+
+{# ---------------- 篮球推荐 ---------------- #}
+<section class="panel" id="panel-basketball" role="tabpanel" aria-labelledby="tab-basketball" tabindex="0" hidden>
+  <div class="notice">篮球覆盖胜负、让分胜负（主队让分）、大小分三种玩法；组合赔率必须严格大于2.5。以下为市场候选排序，尚未核查伤停。</div>
+  {% for b in result.basketball %}
+  <div class="card">
+    <div class="card-title"><h3>{{ b.name }}</h3><span class="muted small">在售 {{ b.n }} 场</span></div>
+    {% for p in published if p.kind in ('篮球最终串', '篮球单场方向') and b.name[2:4] in p.title %}
+      <p class="small secondary">已发布：</p>{{ ui.record(p) }}
+    {% endfor %}
+    {% if b.candidates %}
+      {% for c in b.candidates %}{{ ui.combo(c, loop.index0, 'basketball') }}{% endfor %}
+    {% else %}
+      <p class="muted">{{ b.reason }}</p>
+      {% for l in b.singles %}<div class="combo"><div class="combo-head"><span>单场方向（不成串）</span></div>{{ ui.leg_row(l, 'basketball') }}</div>{% endfor %}
+    {% endif %}
+  </div>
+  {% endfor %}
+</section>
+
+{# ---------------- 八结构 ---------------- #}
+<section class="panel" id="panel-structures" role="tabpanel" aria-labelledby="tab-structures" tabindex="0" hidden>
+  <div class="notice">每个时段内，八种允许结构各取通过门槛、联合p最高的一组；显示“—”表示该结构没有合规组合。</div>
+  {% for s in result.structures %}
+  <div class="card">
+    <div class="card-title"><h3>足球{{ s.name }}</h3></div>
+    <div class="scroll"><table class="grid">
+      <thead><tr><th>结构</th><th>腿1</th><th>腿2</th><th class="num">组合赔率</th><th class="num">整单实际倍数</th><th style="min-width:160px">联合p</th></tr></thead>
+      <tbody>
+      {% for row in s.rows %}{% set c = row.best %}
+        <tr>
+          <td class="nowrap"><b>{{ row.struct }}</b></td>
+          {% if c %}
+          {% for l in c.legs %}<td>{{ l.num }} {{ l.home }} VS {{ l.away }}<br><b>{{ l.opt.label }}</b> <span class="muted">{% for b in l.opt.branches %}@{{ b.odds }}{% if not loop.last %}／{% endif %}{% endfor %}</span></td>{% endfor %}
+          <td class="num">{{ c.prods|join('／') }}</td><td class="num">{{ c.eff|join('／') }}</td><td>{{ ui.meter(c.p) }}</td>
+          {% else %}<td colspan="5" class="muted">—</td>{% endif %}
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+  {% endfor %}
+</section>
+
+{# ---------------- 六类方向 ---------------- #}
+<section class="panel" id="panel-six" role="tabpanel" aria-labelledby="tab-six" tabindex="0" hidden>
+  <div class="notice">每类取窗口内p最高的合规选项（在售、可过关、单项≥1.33），并列出两个备选。六类方向只是单场方向，不是额外的串关。</div>
+  <div class="grid3">
+  {% for s in result.six %}
+    <div class="card">
+      <div class="card-title"><h3>{{ s.category }}</h3>
+        {% for p in published if p.kind == s.category %}{{ ui.state(p.state) }}{% endfor %}</div>
+      {% for p in published if p.kind == s.category %}
+        <p class="small secondary">已发布：{% for l in p.legs %}{{ l|legtxt }}{% endfor %}</p>
+      {% endfor %}
+      {% if s.best %}
+        <div class="small secondary">市场最高：</div>
+        <div><b>{{ s.best.num }}</b> {{ s.best.home }} VS {{ s.best.away }}</div>
+        <div class="pick"><b>{{ s.best.opt.label }}</b> <span class="muted">{% for b in s.best.opt.branches %}@{{ b.odds }}{% if not loop.last %}／{% endif %}{% endfor %}</span></div>
+        {{ ui.meter(s.best.opt.p) }}
+        {% if s.alts %}<div class="small muted" style="margin-top:6px">备选：{% for a in s.alts %}{{ a.num }} {{ a.opt.label }}（{{ a.opt.p|pct }}）{% if not loop.last %}；{% endif %}{% endfor %}</div>{% endif %}
+      {% else %}<p class="muted">无合规选项</p>{% endif %}
+    </div>
+  {% endfor %}
+  </div>
+  {% if result.dream %}
+  <div class="card" style="margin-top:14px">
+    <div class="card-title"><h3>比分4串1梦想单（市场候选）</h3><span class="muted small">组合赔率 {{ result.dream.product }} · 四腿联合p约 {{ '%.4f'|format(result.dream.p * 100) }}%</span></div>
+    <div class="scroll"><table class="grid"><tr><th>场次</th><th>对阵</th><th>比分</th><th class="num">赔率</th><th style="min-width:150px">p</th></tr>
+    {% for d in result.dream.legs %}<tr><td>{{ d.num }}</td><td>{{ d.home }} VS {{ d.away }}</td><td><b>{{ d.score }}</b></td><td class="num">{{ d.odds }}</td><td>{{ ui.meter(d.p) }}</td></tr>{% endfor %}
+    </table></div>
+  </div>
+  {% endif %}
+</section>
+
+{# ---------------- 逐场分析 ---------------- #}
+<section class="panel" id="panel-matches" role="tabpanel" aria-labelledby="tab-matches" tabindex="0" hidden>
+  <div class="match-toolbar">
+  <div class="segmented" id="match-filters" role="group" aria-label="比赛筛选">
+    {% for value, label in [('all','全部'),('football','足球'),('basketball','篮球'),('early','早场'),('middle','中场'),('late','晚场')] %}<button type="button" class="{{ 'on' if loop.first }}" data-f="{{ value }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">{{ label }}</button>{% endfor %}
+  </div>
+  <span class="muted small" id="filter-result" role="status" aria-live="polite"></span></div>
+  <div class="empty-state" id="match-empty" hidden>{{ icon('rows-3') }}<h3>没有符合条件的比赛</h3><p>当前业务日暂无此分组赛事。</p></div>
+  {% for key, label, rows in groups_fb %}{% if rows %}
+  <h2 class="section" data-sport="football" data-period="{{ key }}">足球 · {{ label }}（{{ rows|length }}场）{% if key == 'outside' %}<span class="muted small">不在12:00–次日09:00窗口，只展示</span>{% endif %}</h2>
+  <div class="grid2" data-sport="football" data-period="{{ key }}">
+    {% for m in rows %}
+    <div class="match">
+      <div class="match-head">
+        <div><div class="teams">{{ m.home }}<span class="vs">VS</span>{{ m.away }}</div>
+          <div class="muted small">{{ m.num }} · {{ m.league }} · {{ m.kickoff[5:] }} {% if m.L %}· 主{{ m.L }}{% endif %}</div></div>
+        <div>{% if m.status == 'Selling' %}<span class="st good">● 在售</span>{% else %}<span class="st neutral">{{ m.status }}</span>{% endif %}
+          {% if m.half_full_trigger %}<span class="tag">触发{{ '胜胜' if m.half_full_trigger == 'hh' else '负负' }}</span>{% endif %}</div>
+      </div>
+      {{ ui.hadbar(m) }}
+      <div class="opts">
+        <div class="small secondary">合规选项（按p排序，前5）</div>
+        {% for o in m.options[:5] %}
+        <div class="opt"><span><span class="tag">{{ o.category }}</span> {{ o.label }}</span><span class="odds">{% for b in o.branches %}{{ b.odds }}{% if not loop.last %}/{% endif %}{% endfor %}</span>{{ ui.meter(o.p) }}</div>
+        {% else %}<p class="muted small">无合规选项（未售、不可过关或赔率低于1.33）</p>{% endfor %}
+      </div>
+      <div class="small" style="margin-top:6px">
+        {% if m.best_ttg %}<span class="tag">总进球 {{ m.best_ttg.pair[0] }}/{{ m.best_ttg.pair[1] }}球 {{ m.best_ttg.p|pct }}</span>{% endif %}
+        {% if m.dd_p %}<span class="tag">双平 {{ m.dd_p|pct }}</span>{% endif %}
+        {% if m.top_crs %}<span class="tag">比分 {{ m.top_crs.score }}@{{ m.top_crs.odds }}</span>{% endif %}
+        <a href="/match/football/{{ m.num }}?date={{ m.business_date }}" style="float:right">全部玩法 →</a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}{% endfor %}
+
+  {% for key, label, rows in groups_bk %}{% if rows %}
+  <h2 class="section" data-sport="basketball" data-period="{{ key }}">篮球 · {{ label }}（{{ rows|length }}场）</h2>
+  <div class="grid2" data-sport="basketball" data-period="{{ key }}">
+    {% for m in rows %}
+    <div class="match">
+      <div class="match-head">
+        <div><div class="teams">{{ m.away }}<span class="vs">（客）VS</span>{{ m.home }}<span class="vs">（主）</span></div>
+          <div class="muted small">{{ m.num }} · {{ m.league }} · {{ m.kickoff[5:] }}</div></div>
+        <div>{% if m.status == 'Selling' %}<span class="st good">● 在售</span>{% else %}<span class="st neutral">{{ m.status }}</span>{% endif %}</div>
+      </div>
+      {{ ui.mnlbar(m) }}
+      <div class="opts">
+        {% for o in m.options[:4] %}
+        <div class="opt"><span>{{ o.label }}</span><span class="odds">{{ o.branches[0].odds }}</span>{{ ui.meter(o.p) }}</div>
+        {% endfor %}
+      </div>
+      <div class="small" style="margin-top:6px"><a href="/match/basketball/{{ m.num }}?date={{ m.business_date }}" style="float:right">全部玩法 →</a>&nbsp;</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}{% endfor %}
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='analysis.js') }}?v=4" defer></script>{% endblock %}

@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}无访问权限{% endblock %}
+{% block body %}
+<section class="card login">
+  <h1>没有访问权限</h1>
+  <p>你的钉钉身份已验证，但不在本系统白名单中。</p>
+  <table class="kv">
+    <tr><th>姓名</th><td>{{ info.name }}</td></tr>
+    <tr><th>钉钉 userId</th><td><code>{{ info.user_id }}</code></td></tr>
+  </table>
+  <p>请管理员把上面的 userId 加入 <code>.env</code> 的 <code>FOOT_ALLOWED_USER_IDS</code>（管理员另加 <code>FOOT_ADMIN_USER_IDS</code>）后重启服务，再重新登录。</p>
+  <a class="btn" href="/login">返回登录</a>
+</section>
+{% endblock %}

@@ -1,0 +1,10 @@
+__pycache__/
+.DS_Store
+.env
+.pytest_cache/
+.venv/
+*.db
+*.pyc
+extract_tmp/
+var/
+web/data/

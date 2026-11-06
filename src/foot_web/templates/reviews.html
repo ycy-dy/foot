@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}复盘分析 · 竞彩分析推荐{% endblock %}
+{% block body %}
+<link rel="stylesheet" href="{{ url_for('static', filename='automation.css') }}?v=1">
+<div class="pagehead"><div><div class="eyebrow">POST-MATCH REVIEW</div><h1>复盘分析</h1><p class="muted">冻结原票 · 官方赛果 · Claude / Codex AI复盘 · 命中率台账</p></div>{% if user.role == 'admin' %}<a class="btn" href="/automation">设置定时复盘</a>{% endif %}</div>
+<div class="notice">只复盘已登记的标准化原票，不把未发布草稿当作最终推荐。终场、半场、盘口或身份缺失时保留待核；取消/走盘不自动算输。重复复盘保留版本，台账采用最新成功版本，不重复累计。实际投注金额与返还始终为 null。</div>
+{% if error %}<p class="err" role="alert">{{ error }}</p>{% endif %}
+{% if user.role == 'admin' %}
+<form method="post" action="/reviews" class="review-request"><input type="hidden" name="csrf" value="{{ csrf }}"><label>复盘业务日<input type="date" required name="date" value="{{ default_date }}"></label><button type="submit" class="btn primary">开始复盘分析</button></form>
+<p class="small muted">默认前一日，可选其他已有原票的业务日。复盘会调用本机Claude，失败时回退Codex并消耗对应账户额度；AI分析失败不替换上一成功台账。不修改原推荐、不自动发布。若同类复盘正在运行，会跳转该任务。</p>
+{% else %}<p class="muted">只读模式：可查看复盘，不能发起任务或变更定时计划。</p>{% endif %}
+{% if dates %}<p class="small muted">台账业务日：{{ dates[:12]|join(' · ') }}</p>{% endif %}
+<h2>最近复盘任务</h2><div class="tablewrap"><table class="grid"><thead><tr><th>业务日</th><th>创建时间（北京）</th><th>状态</th><th>执行说明</th><th>详情</th></tr></thead><tbody>
+{% for task in tasks %}<tr><td>{{ task.business_date }}</td><td>{{ task.created_at }}</td><td>{{ task.status }}</td><td>{{ task.message }}</td><td><a href="{{ url_for('automation.review_detail',task_id=task.id) }}">查看复盘</a></td></tr>{% else %}<tr><td colspan="5" class="muted">尚无复盘任务。旧台账仍可在“台账查询”查看。</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% from 'icons.html' import icon %}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}竞彩分析推荐{% endblock %}</title>
+<script>
+try { const theme = localStorage.getItem('foot-theme'); if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme; } catch (_) {}
+</script>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=6">
+<link rel="stylesheet" href="{{ url_for('static', filename='research.css') }}?v=1">
+</head>
+<body class="{{ 'authenticated' if user else 'public-page' }}">
+<a class="skip-link" href="#main-content">跳到主要内容</a>
+<header class="topbar"><div class="topbar-inner">
+  <a class="brand" href="/"><span class="brand-mark">{{ icon('chart-no-axes-combined') }}</span><span>竞彩分析推荐<span class="brand-sub">分析工作台</span></span></a>
+  {% if user %}
+  {% set ep = request.endpoint %}
+  <button class="icon-btn mobile-menu" type="button" aria-controls="main-navigation" aria-expanded="false" aria-label="展开导航" title="展开导航">{{ icon('menu') }}</button>
+  <nav class="mainnav" id="main-navigation" aria-label="主导航">
+    <span class="nav-label">工作空间</span>
+    {% for endpoint, href, glyph, label in [
+      ('pages.index', '/', 'layout-dashboard', '今日推荐'),
+      ('pages.history_view', '/history', 'history', '历史推荐'),
+      ('pages.ledger_view', '/ledger', 'list-filter', '台账查询'),
+      ('pages.stats_view', '/stats', 'chart-no-axes-combined', '命中率统计'),
+      ('monitoring.evaluation', '/research/evaluation', 'chart-no-axes-combined', '分析效果'),
+      ('pages.report_view', '/report', 'file-text', '完整报告')
+    ] %}
+    <a href="{{ href }}" class="{{ 'on' if ep == endpoint }}"{% if ep == endpoint %} aria-current="page"{% endif %}>{{ icon(glyph) }}<span>{{ label }}</span>{% if ep == endpoint %}<span class="nav-current"></span>{% endif %}</a>
+    {% endfor %}
+    {% if user.role == 'admin' %}<a href="/analysis" class="{{ 'on' if ep in ['research.task_list','pages.analysis_view','research.evidence'] }}"{% if ep in ['research.task_list','pages.analysis_view','research.evidence'] %} aria-current="page"{% endif %}>{{ icon('sparkles') }}<span>分析中心</span></a>{% endif %}
+    <a href="/reviews" class="{{ 'on' if ep in ['automation.reviews', 'automation.review_detail', 'automation.request_review'] }}"{% if ep in ['automation.reviews', 'automation.review_detail', 'automation.request_review'] %} aria-current="page"{% endif %}>{{ icon('history') }}<span>复盘分析</span></a>
+    {% if user.role == 'admin' %}<a href="/automation" class="{{ 'on' if ep in ['automation.schedules', 'automation.save_schedule'] }}"{% if ep in ['automation.schedules', 'automation.save_schedule'] %} aria-current="page"{% endif %}>{{ icon('scroll-text') }}<span>定时分析</span></a>{% endif %}
+    {% if user.role == 'admin' %}<a href="/research/monitoring" class="{{ 'on' if ep in ['monitoring.monitoring','monitoring.monitoring_settings','monitoring.recheck_view'] }}"{% if ep in ['monitoring.monitoring','monitoring.monitoring_settings','monitoring.recheck_view'] %} aria-current="page"{% endif %}>{{ icon('shield-check') }}<span>临场复核</span></a>{% endif %}
+    {% if user.role == 'admin' %}<a href="/research/notifications" class="{{ 'on' if ep in ['monitoring.notification_view','monitoring.notification_settings'] }}"{% if ep in ['monitoring.notification_view','monitoring.notification_settings'] %} aria-current="page"{% endif %}>{{ icon('arrow-up-right') }}<span>钉钉提醒</span></a>{% endif %}
+    <a href="/research/versions" class="{{ 'on' if ep == 'research.versions' }}"{% if ep == 'research.versions' %} aria-current="page"{% endif %}>{{ icon('layers') }}<span>执行版本</span></a>
+    {% if user.role == 'admin' %}<span class="nav-label nav-separator">管理</span><a href="/admin/events" class="{{ 'on' if ep == 'pages.events' }}"{% if ep == 'pages.events' %} aria-current="page"{% endif %}>{{ icon('scroll-text') }}<span>操作日志</span></a>{% endif %}
+  </nav>
+  <div class="userbox">
+    <span class="avatar" aria-hidden="true">{{ user.name[:1] }}</span>
+    <span class="user-info"><b>{{ user.name }}</b><span class="role">{{ '管理员' if user.role == 'admin' else '只读成员' }}</span></span>
+    <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="icon-btn" title="退出登录" aria-label="退出登录">{{ icon('log-out') }}</button></form>
+  </div>
+  {% endif %}
+</div></header>
+<div class="workspace">
+<div class="workspace-bar"><span>{{ icon('panel-left') }}<span>竞彩 / {{ '研究工作台' if user else '身份认证' }}</span></span><div><span class="research-mode">{{ icon('shield-check') }}仅研究</span><button class="icon-btn" data-theme-toggle type="button" title="切换配色" aria-label="切换配色">{{ icon('sun', 'theme-sun') }}{{ icon('moon', 'theme-moon') }}</button></div></div>
+<main id="main-content" tabindex="-1">{% block body %}{% endblock %}</main>
+<footer>{{ icon('shield-check') }}<span>仅研究与展示，不接入投注、不下单，不保证命中或收益。<br>p＝市场基准命中概率（官方赔率比例去水），不是模型预测。</span></footer>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script>
+window.FOOT = {csrf: {{ csrf|tojson }}};
+</script>
+<script src="{{ url_for('static', filename='app.js') }}?v=4" defer></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}规则执行版本{% endblock %}
+{% block body %}
+<div class="pagehead"><div><div class="eyebrow">规则 / 可追溯性</div><h1>规则执行版本</h1></div></div>
+{% if error %}<div class="notice">{{ error }}</div>{% endif %}
+{% if manifest %}
+<div class="notice">{{ manifest.semantic_validation }}。{{ manifest.model_status }}。</div>
+<section class="card"><div class="card-title"><h2>执行门槛检查</h2><span class="st {{ 'good' if manifest.compatibility == 'supported_subset' else 'bad' }}">{{ '已支持列明项' if manifest.compatibility == 'supported_subset' else '存在执行冲突' }}</span></div>
+<div class="scroll"><table class="grid" style="min-width:0"><thead><tr><th>检查项</th><th>状态</th></tr></thead><tbody>{% for check in manifest.checks %}<tr><td>{{ check.name }}</td><td>{{ '通过' if check.passed else '与程序不一致，阻止新分析/发布' }}</td></tr>{% endfor %}</tbody></table></div></section>
+<section class="card"><div class="card-title"><h2>现行身份</h2></div><dl class="version-identities">
+<dt>业务修订</dt><dd>{{ manifest.spec_revision }}</dd><dt>工作流</dt><dd>{{ manifest.workflow_version }}</dd>
+<dt>规则摘要</dt><dd>{{ manifest.rules_sha256 }}</dd><dt>程序摘要</dt><dd>{{ manifest.code_sha256 }}</dd>
+{% for name, value in manifest.rule_hashes.items() %}<dt>{{ name }}</dt><dd>{{ value }}</dd>{% endfor %}
+</dl></section>
+{% endif %}
+{% endblock %}

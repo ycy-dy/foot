@@ -1,0 +1,1 @@
+<button type="button" id="btn-analysis-stop" data-analysis-action="cancel" class="btn stop-analysis" title="终止当前分析，保留已完成的逐场结果" aria-label="终止当前分析"{% if not analysis_task or analysis_task.status not in ['queued','running'] %} hidden{% endif %}>{{ icon('square') }}<span>终止分析</span></button>

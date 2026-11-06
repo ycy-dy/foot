@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% import 'macros.html' as ui %}
+{% block title %}台账查询{% endblock %}
+{% block body %}
+<div class="pagehead"><div><h1>台账查询</h1><div class="meta">按原发布版本逐项结算；默认不含已被替代的版本。实际投注金额和返还固定为 null，模拟金额仅用于计算示例。</div></div></div>
+<form class="card filters" method="get">
+  <label>开始日期<input type="date" name="from" value="{{ args.get('from','') }}"></label>
+  <label>结束日期<input type="date" name="to" value="{{ args.get('to','') }}"></label>
+  <label>栏目<select name="group"><option value="">全部</option>{% for g in groups %}<option {{ 'selected' if args.get('group') == g }}>{{ g }}</option>{% endfor %}</select></label>
+  <label>类别<select name="kind"><option value="">全部</option>{% for g, ks in groups.items() %}{% for k in ks %}<option {{ 'selected' if args.get('kind') == k }}>{{ k }}</option>{% endfor %}{% endfor %}</select></label>
+  <label>状态<select name="state"><option value="">全部</option><option value="hit" {{ 'selected' if args.get('state') == 'hit' }}>命中</option><option value="miss" {{ 'selected' if args.get('state') == 'miss' }}>未中</option><option value="pending" {{ 'selected' if args.get('state') == 'pending' }}>待赛</option></select></label>
+  <label>关键词<input name="q" value="{{ args.get('q','') }}" placeholder="球队或场次编号"></label>
+  <label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" name="superseded" value="1" {{ 'checked' if args.get('superseded') == '1' }} style="min-width:0">含已替代</label>
+  <button class="btn primary">查询</button><a class="btn" href="/ledger">重置</a>
+</form>
+<div class="tiles">
+  <div class="tile"><div class="label">记录数</div><div class="value">{{ summary.n }}</div><div class="sub">已结算 {{ summary.settled }} · 待赛 {{ summary.pending }}</div></div>
+  <div class="tile"><div class="label">命中率</div><div class="value">{{ summary.rate|pct }}</div><div class="sub">{{ summary.hit }}/{{ summary.settled }}</div></div>
+  <div class="tile"><div class="label">单腿命中率</div><div class="value">{{ summary.leg_rate|pct }}</div><div class="sub">{{ summary.legs_hit }}/{{ summary.legs_total }}</div></div>
+  <div class="tile"><div class="label">模拟投入 → 理论返还</div><div class="value">{{ summary.cost }} → {{ summary.ret }}</div><div class="sub">理论回报率 {{ summary.roi|pct }}（非真实收支）{% if summary.return_pending %} · {{ summary.return_pending }} 张返还待核，未计收益{% endif %}</div></div>
+</div>
+<div class="card scroll">
+<table class="grid">
+  <thead><tr><th>日期</th><th>栏目/类别</th><th>方案</th><th>选项与赔率</th><th>赛果</th><th>状态</th><th class="num">腿</th><th class="num">模拟→理论返还</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr>
+    <td class="nowrap"><a href="/history?date={{ r.business_date }}">{{ r.business_date }}</a></td>
+    <td class="nowrap">{{ r.group }}<br><span class="muted small">{{ r.kind }}</span></td>
+    <td>{{ r.title }}{% if r.superseded %} <span class="tag">已替代</span>{% endif %}<br><span class="muted small">{{ r.status_label }}</span></td>
+    <td>{% for l in r.settled_legs or r.legs %}<div>{{ l.number }} {{ l.matchup }}：<b>{% for o in l.options %}{{ o.label }}@{{ o.odds }}{% if not loop.last %}／{% endif %}{% endfor %}</b></div>{% endfor %}</td>
+    <td class="nowrap">{% for l in r.settled_legs or r.legs %}<div>{% if l.score %}{{ l.score }}{% if l.half %}<span class="muted small">（半{{ l.half }}）</span>{% endif %} {{ '✓' if l.hit else ('✗' if l.hit == false else '') }}{% else %}待赛{% endif %}</div>{% endfor %}</td>
+    <td>{{ ui.state(r.state) }}</td>
+    <td class="num">{{ r.legs_hit }}/{{ r.legs_total }}</td>
+    <td class="num">{{ r.sim_cost }}→{{ r.theoretical_return if r.theoretical_return is not none else '—' }}</td>
+  </tr>
+  {% else %}<tr><td colspan="8" class="muted">没有符合条件的记录</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
