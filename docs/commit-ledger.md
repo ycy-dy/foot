@@ -53,6 +53,16 @@
 - **历史边界**：旧提交链保留本地 `backup/pre-clean-main-*` 分支，含被扫描命中的旧网页，绝不可推送该备份或使用 `--all`／`--mirror` 迁移。GitHub只推新的main。
 - **验证**：创建前检查暂存区为空、根提交树与原HEAD仅台账不同；不重写工作区、不清除未提交数据；不绕过GitHub保护、不force push。源码未变，本次不重复测试或部署；旧套件失败边界仍见前述记录。
 - **推送目标**：`origin/main`。
-- **提交时状态**：待生成干净根提交、推送并核验远程；最终结果由当次答复确认。
+- **同步结果补记**：根提交 `a6c52c2` 已成功推送GitHub，origin/main建立，远程与本地一致。认证及密钥保护处理已补记 [Issue #2](https://github.com/ycy-dy/foot/issues/2)。
+
+## C20261106-005 · 需求问题 Issue 与跨 Agent 交接规范
+
+- **关联事项**：[Issue #1](https://github.com/ycy-dy/foot/issues/1)。
+- **提交定位**：`docs: require issue tracking for agent handoffs [C20261106-005]`。
+- **范围**：AGENTS持续规则、README导航/干净历史状态、Issue协作指南、GitHub统一Issue模板、本台账；不纳入其他工作区数据改动。
+- **结果**：每个新需求/新问题创建或更新Issue，记录验收/决策/验证/提交/风险和下一步；全部完成才关闭，网络不可用如实标待同步，不泄露凭证。
+- **验证**：Markdown本地链接、Issue模板YAML前置字段、暂存差异校验；远程Issue创建与读取；无运行时代码改动，不重跑全量或重启服务。旧测试兼容缺口不因本项完成而解决。
+- **推送目标**：origin/main；提交时待推送，最终状态见Issue总结及当次答复。
+
 
 
