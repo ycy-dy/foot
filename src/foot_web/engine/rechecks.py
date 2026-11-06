@@ -57,7 +57,25 @@ class RecheckTasks:
         return self.recover(self.store.get(task_id))
 
     def start(self, publication_id, actor, lineup_enabled=False, trigger_key=None):
-        raise ValueError('业务体系已删除，新的临场策略复核已停用')
+        manifest, _ = rules_manifest(self.config['PROJECT_DIR'])
+        if manifest.get('compatibility') != 'supported_subset':
+            raise ValueError('当前规则未通过兼容性检查')
+        publications = PublicationsStore(self.config['DATA_DIR'])
+        publication = publications.get(publication_id)
+        current = publications.current(publication['business_date']) if publication else None
+        if not current or current['id'] != publication_id or current['status'] != 'published':
+            raise ValueError('只复核当前有效发布版本')
+        for row in self.store.list():
+            self.recover(row)
+        task_id = 'recheck-' + datetime.now(TZ).strftime('%Y%m%dT%H%M%S%f') + '-' + uuid.uuid4().hex[:8]
+        row, created = self.store.begin(task_id, publication_id, trigger_key or task_id, actor, lineup_enabled)
+        if created:
+            try:
+                row = self.store.update(task_id, worker_pid=self.launcher(task_id))
+            except (OSError, subprocess.SubprocessError):
+                row = self.store.update(task_id, status='failed', message='后台复核进程无法启动',
+                                        finished_at=datetime.now(TZ).isoformat())
+        return row, not created
 
 
 def run_recheck(config, task_id, fetcher=None, analyst=None):
@@ -66,7 +84,19 @@ def run_recheck(config, task_id, fetcher=None, analyst=None):
         return
     task = store.get(task_id)
     try:
-        raise ValueError('业务体系已删除，后台临场策略已停用')
+        manifest, texts = rules_manifest(config['PROJECT_DIR'])
+        if manifest.get('compatibility') != 'supported_subset':
+            raise ValueError('当前规则未通过兼容性检查')
+        def live_analyst(match, old, folder, now, cancelled, on_event):
+            return decide(config, folder, make_match_prompt(match, research_rules(texts), now),
+                          EVIDENCE_SCHEMA, lambda payload: validate_evidence(payload, match, now),
+                          cancelled=cancelled, on_event=on_event)
+        result = RecheckService(config, fetcher or Fetcher(config['DATA_DIR']),
+                                analyst=analyst or live_analyst, store=store).run(task)
+        if store.cancelled(task_id):
+            raise ValueError('复核已取消')
+        store.update(task_id, status='succeeded', payload=result, message='临场复核已保存，原票未改写',
+                     finished_at=datetime.now(TZ).isoformat())
     except Exception as exc:
         cancelled = store.cancelled(task_id)
         store.update(task_id, status='cancelled' if cancelled else 'failed',

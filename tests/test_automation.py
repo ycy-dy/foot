@@ -37,7 +37,7 @@ def test_schedule_defaults_validation_and_edit(jobs):
             save(jobs, **changes)
 
 
-def test_tick_deduplicates_workers_and_preserves_business_date(cfg, jobs):
+def test_disabled_scheduler_never_dispatches_even_with_concurrent_ticks(cfg, jobs):
     save(jobs, offset='-1')
     called = []
 
@@ -50,14 +50,12 @@ def test_tick_deduplicates_workers_and_preserves_business_date(cfg, jobs):
     due = NOW + timedelta(minutes=1)
     with ThreadPoolExecutor(max_workers=2) as pool:
         list(pool.map(lambda _: scheduler.tick(due), range(2)))
-    assert called == [('2026-11-03', 'admin1')]
-    assert jobs.fires()[0]['status'] == 'submitted'
-    scheduler.tick(due + timedelta(seconds=20))
-    assert len(called) == 1
-    assert jobs.schedules()[0]['next_due'].startswith('2026-11-05')
+    assert called == []
+    assert jobs.fires() == []
+    assert jobs.schedules()[0]['next_due'].startswith('2026-11-04')
 
 
-def test_missed_busy_failed_and_revoked_are_honest(cfg, jobs):
+def test_disabled_scheduler_never_creates_missed_busy_or_revoked_fires(cfg, jobs):
     save(jobs)
 
     class Tasks:
@@ -66,14 +64,10 @@ def test_missed_busy_failed_and_revoked_are_honest(cfg, jobs):
 
     scheduler = Scheduler(cfg, Tasks(), Tasks(), jobs)
     scheduler.tick(NOW + timedelta(minutes=30))
-    assert jobs.fires()[0]['status'] == 'skipped'
-    assert '过期' in jobs.fires()[0]['message']
     scheduler.tick(NOW + timedelta(days=1, minutes=1))
-    assert '繁忙' in jobs.fires()[0]['message']
-    assert jobs.fires()[0]['task_id'] is None
     scheduler.config = cfg | {'FOOT_ADMIN_USER_IDS': ''}
     scheduler.tick(NOW + timedelta(days=2, minutes=1))
-    assert '权限' in jobs.fires()[0]['message']
+    assert jobs.fires() == []
 
 
 def test_recent_catchup_offline_days_and_disabled(jobs):
@@ -101,13 +95,13 @@ def test_interrupted_dispatch_and_schedule_limit(jobs):
         save(jobs)
 
 
-def test_dispatch_start_failure_is_recorded(cfg, jobs):
+def test_disabled_scheduler_never_calls_failing_worker(cfg, jobs):
     save(jobs, kind='review')
     class Broken:
         def start(self, *args):
             raise OSError('failed')
     Scheduler(cfg, Broken(), Broken(), jobs).tick(NOW + timedelta(minutes=1))
-    assert jobs.fires()[0]['status'] == 'failed'
+    assert jobs.fires() == []
 
 
 def test_review_launch_failure_and_dead_worker(cfg, jobs, monkeypatch):
@@ -132,6 +126,8 @@ def test_review_task_dedup_worker_and_failure(cfg, jobs):
     assert tasks.start('2026-11-04', 'admin1')[1]
 
     class Service:
+        analyst = staticmethod(lambda result: result)  # explicit AI boundary double
+
         def run(self, business_date, run_id):
             assert business_date == '2026-11-03'
             return {'rows': []}
@@ -142,6 +138,8 @@ def test_review_task_dedup_worker_and_failure(cfg, jobs):
     second = tasks.latest()[0]
 
     class Broken:
+        analyst = staticmethod(lambda result: result)
+
         def run(self, *args):
             raise ValueError('没有可复盘的冻结原票')
 
@@ -157,6 +155,8 @@ def test_review_worker_subprocess_no_tickets_is_explicit(cfg, tmp_path):
     import sys
     project = tmp_path / 'empty-project'
     project.mkdir()
+    from conftest import copy_rules
+    copy_rules(project)
     config = cfg | {'PROJECT_DIR': str(project)}
     jobs = JobsStore(config['DATA_DIR'])
     jobs.begin_review('review-subprocess-test', '2026-11-03', 'admin1')
@@ -180,13 +180,13 @@ def test_automation_routes_permissions_csrf_and_forms(client, identity, app):
     assert client.post('/reviews', data={}).status_code == 403
     login(client, identity)
     assert client.get('/automation').status_code == 200
-    assert client.post('/automation', data={}).status_code == 400
+    assert client.post('/automation', data={}).status_code == 409
     with client.session_transaction() as session:
         csrf = session['csrf']
     response = client.post('/automation', data={'csrf': csrf, 'name': '测试', 'kind': 'analysis',
                                                'time': '12:00', 'offset': '0'})
-    assert response.status_code == 303
-    assert '测试' in client.get('/automation').get_data(as_text=True)
+    assert response.status_code == 409
+    assert app.extensions['jobs'].schedules() == []
     assert client.post('/reviews', data={'csrf': csrf, 'date': 'bad'}).status_code == 400
     app.extensions['review_tasks'].launcher = lambda *_: os.getpid()
     response = client.post('/reviews', data={'csrf': csrf, 'date': '2026-11-03'})

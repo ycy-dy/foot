@@ -71,14 +71,23 @@ def create_app(config=None, fetcher=None, identity=None, analysis_launcher=None)
 
     @app.before_request
     def removed_policy_guard():
-        # The former business policy was explicitly deleted, not replaced.
         if request.method == 'POST' and (
             request.path in ('/api/recompute', '/reviews')
             or request.path.startswith(('/analysis/', '/research/', '/automation'))
         ) and not request.path.endswith('/cancel'):
             if not g.get('user') or g.user.get('role') != 'admin':
                 return {'success': False, 'message': '需要管理员权限'}, 403
-            return {'success': False, 'message': '分析与推荐体系已删除，策略操作已停用；请先建立新规格'}, 409
+            # Scheduling and outbound integrations require separate opt-in.
+            if request.path.startswith('/automation') or request.path == '/research/notifications':
+                return {'success': False, 'message': '自动计划和通知尚未启用，请单独确认范围'}, 409
+            from .services.versions import rules_manifest
+            try:
+                manifest, _ = rules_manifest(cfg['PROJECT_DIR'])
+                available = manifest['compatibility'] == 'supported_subset'
+            except (OSError, ValueError, KeyError, TypeError):
+                available = False
+            if not available:
+                return {'success': False, 'message': '当前政策或证据评分契约不可用，拒绝策略操作'}, 409
 
     @app.after_request
     def security_headers(resp):

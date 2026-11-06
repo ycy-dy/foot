@@ -100,7 +100,7 @@ def test_dingtalk_request_uses_form_no_broadcast_and_does_not_log_token(cfg):
     assert 'dept_id_list' not in seen['data']
 
 
-def test_notification_settings_are_admin_only_and_csrf_protected(client, identity):
+def test_notification_settings_are_admin_only_and_unauthorized_automation_stays_closed(client, identity):
     assert client.get('/research/notifications').status_code == 302
     login(client, identity, 'viewer1', '查看者')
     assert client.get('/research/notifications').status_code == 403
@@ -109,7 +109,7 @@ def test_notification_settings_are_admin_only_and_csrf_protected(client, identit
     client.post('/logout', data={'csrf': csrf})
     login(client, identity)
     assert client.get('/research/notifications').status_code == 200
-    assert client.post('/research/notifications', data={'enabled': '1'}).status_code == 400
+    assert client.post('/research/notifications', data={'enabled': '1'}).status_code == 409
 
 
 def test_collect_does_not_backfill_history_and_deduplicates_new_failures(cfg):

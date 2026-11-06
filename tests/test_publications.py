@@ -5,8 +5,9 @@ from datetime import timedelta
 from pathlib import Path
 
 import pytest
+from foot_web.services.versions import RULE_FILES
 
-from conftest import ANALYSIS_ASOF, FakeFetcher, research_response, login
+from conftest import ANALYSIS_ASOF, FakeFetcher, audited_research_response as research_response, login
 from foot_web import create_app
 from foot_web.engine.tasks import AnalysisTasks, run_task
 from foot_web.services.publications import PublicationError, PublicationService
@@ -25,7 +26,8 @@ class FreshFetcher(FakeFetcher):
 def researched(cfg, tmp_path):
     root = tmp_path / 'project'
     root.mkdir()
-    for name in ('AGENTS.md', 'analysis_recommendation_system_v6_0.md', 'analysis_recommendation_system_v6_0.yaml'):
+    for name in RULE_FILES:
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
         (root / name).write_bytes((Path(cfg['PROJECT_DIR']) / name).read_bytes())
     config = cfg | {'PROJECT_DIR': str(root), 'DATA_DIR': str(tmp_path / 'var')}
     tasks = AnalysisTasks(config, launcher=lambda *args: os.getpid())
@@ -45,7 +47,7 @@ def test_audit_runs_real_script_publish_is_immutable_and_idempotent(researched):
     assert request['business_date'] == '2026-11-04'
     assert request['project_dir'] == str(Path(config['PROJECT_DIR']).resolve())
     assert all(name in request['rules'] for name in
-               ('AGENTS.md', 'analysis_recommendation_system_v6_0.md', 'analysis_recommendation_system_v6_0.yaml'))
+               RULE_FILES)
     before = (draft_folder / 'report.draft.md').read_bytes()
     checked = service.check(task['id'], 'admin1', now=ANALYSIS_ASOF)
     assert checked['passed'], checked['errors']
@@ -93,6 +95,10 @@ def test_changes_block_release_without_promoting(researched, change):
                         if key.startswith('s') and key[1:].isdigit():
                             match['ttg'][key] = '1.34'
                 else:
+                    match['matchStatus'] = 'Closed'
+        if change == 'stopped':
+            for group in fetcher.data['basketball']['value']['matchInfoList']:
+                for match in group['subMatchList']:
                     match['matchStatus'] = 'Closed'
     elif change == 'started':
         now += timedelta(days=1)
@@ -175,6 +181,7 @@ def test_new_publication_enters_review_and_does_not_double_count(researched):
     config, _, task, fetcher = researched
     service = PublicationService(config, fetcher)
     checked = service.check(task['id'], 'admin1', now=ANALYSIS_ASOF)
+    assert checked['passed'], checked['errors']
     publication, _ = service.publish(task['id'], checked['id'], 'admin1', confirmed=True, now=ANALYSIS_ASOF)
     tickets, _ = load_tickets(config['PROJECT_DIR'], '2026-11-04', config['DATA_DIR'])
     results = {'football': [], 'basketball': []}

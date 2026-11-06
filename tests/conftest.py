@@ -31,6 +31,41 @@ def research_payload(match):
     }
 
 
+def audited_research_payload(match):
+    """Synthetic offline evidence, with the real audit shape, for positive gates.
+
+    These are explicit test doubles, not claims of fetched production facts.
+    Keep research_payload source-free for missing-evidence negative tests.
+    """
+    payload = research_payload(match)
+    payload['sources'] = [
+        {'id': 'official', 'url': 'https://www.uefa.com/news/',
+         'title': '离线模拟官方名单与战术记录（非线上抓取）', 'tier': 'L1',
+         'group_id': 'fixture-official', 'published_at': ANALYSIS_ASOF.isoformat(),
+         'effective_at': ANALYSIS_ASOF.isoformat()},
+        {'id': 'statistics', 'url': 'https://www.fifa.com/tournaments/',
+         'title': '离线模拟独立赛程和表现记录（非线上抓取）', 'tier': 'L2',
+         'group_id': 'fixture-statistics', 'published_at': ANALYSIS_ASOF.isoformat(),
+         'effective_at': ANALYSIS_ASOF.isoformat()},
+    ]
+    for row in payload['dimensions']:
+        row.update(status='verified', home='模拟已核实主队名单与表现',
+                   away='模拟已核实客队名单与表现', impact='模拟对照比赛路径',
+                   source_ids=['official', 'statistics'])
+    for row in payload['assessments']:
+        row['source_ids'] = ['official', 'statistics']
+        row['reasons'] = ['模拟官方名单支持人员可用性假设', '模拟独立表现记录支持所述比赛路径']
+    payload['quality_gaps'] = ['独立预测模型未运行']
+    return payload
+
+
+def audited_research_response(prompt):
+    if '=== RECOMMENDATION DECISION INPUT ===\n' in prompt:
+        return decision_response(prompt)
+    match = json.loads(prompt.split('=== MATCH INPUT ===\n')[1])
+    return audited_research_payload(match)
+
+
 def decision_response(prompt):
     """Offline AI double: explicit ranked choices and returned rationale per option."""
     from foot_web.services.audit import hit_ft
@@ -56,9 +91,12 @@ def decision_response(prompt):
     return {'context_sha256': fingerprint(context), 'summary': '模拟AI已审阅候选，按市场基准排序并保留条件风险。',
             'vetoes': [], 'choices': [{'slot': slot, 'candidate_id': row['id'] if row else None,
                                      'reason': '模拟AI审阅证据后保留最高合规市场基准候选'} for slot, row in chosen.items()],
-            'assessments': [{'option_id': key, 'reasons': ['模拟AI：未查到非赔率依据，仅按市场基准',
+            'assessments': [{'option_id': key, 'reasons': ['模拟AI：对照冻结来源中的名单及表现记录，不上调市场基准',
                                                         '模拟AI：需沿本项结算路径发展，缺阵使路径失效'],
-                             'source_ids': [], 'risk': '模拟AI返回：阵容和比赛路径仍待核实',
+                             'source_ids': [s['id'] for item in context['evidence']
+                                             if item['match_key'] == options[key]['match_key']
+                                             for s in (item.get('payload') or {}).get('sources', [])],
+                              'risk': '模拟AI返回：阵容和比赛路径仍待核实',
                              'withdraw_if': '模拟AI返回：出现已确认反证或停售即撤销',
                              'mechanism': '模拟AI返回：对照进球或分差条件核查比赛机制'} for key in options]}
 
@@ -88,13 +126,25 @@ class FakeIdentity:
         return self.next
 
 
+def copy_rules(destination):
+    """Copy only current policy contracts; never production state or legacy V6."""
+    from foot_web.services.versions import RULE_FILES
+    root = Path(__file__).resolve().parents[1]
+    for name in RULE_FILES:
+        target = Path(destination) / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((root / name).read_bytes())
+
+
 @pytest.fixture
 def cfg(tmp_path):
+    project = tmp_path / 'isolated-project'
+    copy_rules(project)
     return {'DINGTALK_CLIENT_ID': 'cid', 'DINGTALK_CLIENT_SECRET': 'sec', 'DINGTALK_CORP_ID': 'corp',
             'DINGTALK_REDIRECT_URI': 'http://localhost/auth/dingtalk/callback', 'DINGTALK_AGENT_ID': '1',
             'FOOT_ALLOWED_USER_IDS': 'viewer1', 'FOOT_ADMIN_USER_IDS': 'admin1', 'FOOT_NOTIFY_USER_IDS': '',
             'FOOT_SECRET_KEY': 'test-secret', 'FOOT_PORT': '5020', 'DATA_DIR': str(tmp_path),
-            'PROJECT_DIR': str(Path(__file__).resolve().parents[1])}
+            'PROJECT_DIR': str(project)}
 
 
 @pytest.fixture

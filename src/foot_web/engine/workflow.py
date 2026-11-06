@@ -52,7 +52,7 @@ def run_workflow(config, task_id, prepare, generator, fetcher=None, as_of=None):
             return {key: clean(v) for key, v in value.items()}
         if isinstance(value, list):
             return [clean(v) for v in value]
-        return redact(value, secrets) if isinstance(value, str) else value
+        return redact(value, secrets, limit=None) if isinstance(value, str) else value
 
     try:
         budget = max(30, min(14400, int(config.get('FOOT_ANALYSIS_BUDGET') or 1800)))
@@ -227,7 +227,9 @@ def run_workflow(config, task_id, prepare, generator, fetcher=None, as_of=None):
             if saved['selection_sha256'] != bundle['selection_sha256'] or saved['manifest'] != manifest:
                 raise ValueError('已保存草稿与AI决策不一致')
             bundle = saved
-        for name, text in {'recommendations.draft.json': json_text(bundle),
+        from ..services.daily_ledger import draft_ledger
+        for name, text in {'daily-ledger.draft.json': json_text(draft_ledger(bundle, task_id)),
+                           'recommendations.draft.json': json_text(bundle),
                            'report.draft.md': render_report(bundle, items)}.items():
             write_once(folder / name, text)
         if research.cancelled(task_id):

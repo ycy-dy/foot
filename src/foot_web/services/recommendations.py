@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from . import engine
 from .audit import audit, hit_ft
+from .evidence_confidence import score_evidence, passes
 from .research import DIMENSIONS, STATUSES, exclusion_reason, fingerprint, match_key, moment, option_catalog
 
 SIX = [('胜平负', 'HAD'), ('让球', 'HHAD'), ('进球数', 'TTG'), ('二三球', 'TTG'),
@@ -16,7 +17,7 @@ def _research(item):
     return item.get('payload') or {}
 
 
-def options_with_evidence(match, item):
+def options_with_evidence(match, item, as_of=None):
     evidence = _research(item)
     assessments = {row['option_id']: row for row in evidence.get('assessments', [])}
     source_map = {row['id']: row for row in evidence.get('sources', [])}
@@ -33,6 +34,7 @@ def options_with_evidence(match, item):
             f'本项覆盖“{option["label"]}”的官方结算事件；若比赛偏离该比分/分差路径则不命中']
         if not option['sources'] and not any('仅按市场基准' in reason for reason in option['reasons']):
             option['reasons'][0] = '未查到非赔率依据，仅按市场基准；' + option['reasons'][0]
+        option['evidence_confidence'] = score_evidence(evidence, option_id=option['id'], as_of=as_of or item.get('as_of'))
         option['evidence_state'] = 'sourced_pending_manual_review' if option['sources'] else 'market_only'
         option['model_probability'] = None
         option['EV'] = None
@@ -51,11 +53,11 @@ def _leg(match, option):
             'p_mkt': option['p'], 'model_probability': None, 'EV': None,
             'reasons': option['reasons'], 'sources': option['sources'], 'evidence_state': option['evidence_state'],
             'risk': option['risk'], 'withdraw_if': option['withdraw_if'], 'mechanism': option['mechanism'],
-            'confidence': '低置信度条件方向', 'price_advantage': 'unproven'}
+            'confidence': '证据政策门槛结果', 'evidence_confidence': copy.deepcopy(option.get('evidence_confidence')), 'price_advantage': 'unproven'}
 
 
 def _final_eligible(match, option):
-    if option['code'] == 'CRS' or option['vetoed']:
+    if option['code'] == 'CRS' or option['vetoed'] or not passes(option.get('evidence_confidence')):
         return False
     if match['sport'] == 'football':
         alternative = max((o['p'] for o in match['research_options'] if o['code'] != 'CRS' and not o['vetoed']), default=None)
@@ -71,7 +73,7 @@ def _pair(candidate, matches, title, sport):
     return {'name': title, 'sport': sport, 'legs': legs, 'structure': candidate['struct'],
             'p_mkt_joint': candidate['p'], 'probability_method': '独立近似，未处理相关性',
             'branch_products': candidate['prods'], 'effective_multiples': candidate['eff'],
-            'branches': candidate['branches'], 'confidence': '低置信度条件推荐',
+            'branches': candidate['branches'], 'confidence': '证据政策门槛结果',
             'model_probability': None, 'EV': None, 'price_advantage': 'unproven'}
 
 
@@ -93,10 +95,12 @@ def build_bundle(source, items, manifest, as_of, *, selector=None, catalog=None)
     eligible = []
     for match in matches:
         item = by_key.get(match_key(match), {})
-        match['research_options'] = options_with_evidence(match, item)
+        match['research_options'] = options_with_evidence(match, item, as_of)
         match['exclusion'] = exclusion_reason(match, as_of)
         if item.get('status') != 'succeeded' and not match['exclusion']:
             match['exclusion'] = '逐场证据尚未完成'
+        if not match['exclusion'] and not any(passes(o.get('evidence_confidence')) for o in match['research_options']):
+            match['exclusion'] = '证据可信度未可靠达到70%，不推荐；请补齐时效、关键证据及选项依据'
         if not match['exclusion']:
             eligible.append(match)
 
@@ -117,11 +121,11 @@ def build_bundle(source, items, manifest, as_of, *, selector=None, catalog=None)
         directions = []
         for match in pool:
             choices = [_leg(match, option) for option in match['research_options']
-                       if option['code'] != 'CRS' and not option['vetoed']]
+                       if option['code'] != 'CRS' and not option['vetoed'] and passes(option.get('evidence_confidence'))]
             leg = choose('single:' + match_key(match), choices)
             if leg:
                 directions.append(leg)
-        reason = '不足两场未开赛可售比赛，不能成串' if len(pool) < 2 else '没有同时满足风险、玩法与每分支实际倍数>2.5的组合'
+        reason = '不足两场未开赛可售且证据可信度达70%的比赛，不能成串' if len(pool) < 2 else '没有同时满足风险、玩法与每分支实际倍数>2.5的组合'
         periods.append({'name': title, 'sport': sport, 'count': len(pool), 'note': note,
                         'group': selected, 'reason': None if selected else reason})
         if selected:
@@ -138,7 +142,7 @@ def build_bundle(source, items, manifest, as_of, *, selector=None, catalog=None)
     six = []
     for category, code in SIX:
         choices = [_leg(m, option) for m in fb for option in m['research_options']
-                   if option['code'] == code and not option['vetoed']
+                   if option['code'] == code and not option['vetoed'] and passes(option.get('evidence_confidence'))
                    and (category != '二三球' or {o['key'] for o in option['audit_options']} == {'s2', 's3'})]
         choices.sort(key=lambda leg: -leg['p_mkt'])
         chosen = choose('six:' + category, choices)
@@ -157,7 +161,7 @@ def build_bundle(source, items, manifest, as_of, *, selector=None, catalog=None)
     for match in fb:
         scores = []
         for option in match['research_options']:
-            if option['code'] != 'CRS' or option['vetoed']:
+            if option['code'] != 'CRS' or option['vetoed'] or not passes(option.get('evidence_confidence')):
                 continue
             H, A = map(int, option['label'].split(':'))
             if all(any(hit_ft(leg, opt, H, A) for opt in leg['options']) for leg in finals.get(match['num'], [])):
@@ -165,7 +169,8 @@ def build_bundle(source, items, manifest, as_of, *, selector=None, catalog=None)
         # The context includes all scores; validation additionally checks the
         # final-leg settlement path. A changed final cannot invent a score option.
         chosen = choose('dream:' + match_key(match), [_leg(match, o) for o in scores],
-                        [_leg(match, o) for o in match['research_options'] if o['code'] == 'CRS' and not o['vetoed']])
+                        [_leg(match, o) for o in match['research_options'] if o['code'] == 'CRS' and not o['vetoed']
+                         and passes(o.get('evidence_confidence'))])
         if chosen:
             dream_candidates.append(chosen)
     dream_candidates.sort(key=lambda leg: -leg['p_mkt'])
@@ -176,7 +181,9 @@ def build_bundle(source, items, manifest, as_of, *, selector=None, catalog=None)
               'manifest': manifest, 'groups': groups, 'periods': periods, 'singles': singles,
               'six': six, 'structures': structures, 'dream_legs': dream, 'dream_reason': dream_reason,
               'matches': matches, 'model_probability': None, 'EV': None, 'reference_only': selector is None}
-    bundle['audit_input'] = {'groups': groups, 'dream': [
+    bundle['audit_input'] = {'require_evidence_confidence': True, 'groups': groups,
+                             'singles': [r['leg'] for r in singles], 'six': [r['leg'] for r in six if r['leg']],
+                             'dream_legs': dream, 'dream': [
         {'num': leg['num'], 'score': leg['label'], 'odds': leg['options'][0]['odds']} for leg in dream]}
     errors, notes = audit(bundle['audit_input'])
     bundle['draft_checks'] = {'errors': errors, 'notes': notes, 'published': False}
@@ -209,7 +216,10 @@ def _cell(value):
 
 def _leg_text(leg):
     prices = '／'.join(f'{o["label"]}@{o["odds"]}' for o in leg['options'])
-    return f'{leg["num"]} {_cell(leg["matchup"])} · {_cell(leg["label"])}（{prices}） · p_mkt {leg["p_mkt"]:.1%}'
+    score = leg.get('evidence_confidence') or {}
+    quality = str(score.get('evidence_confidence', '待核'))
+    return (f'{leg["num"]} {_cell(leg["matchup"])} · {_cell(leg["label"])}（{prices}） · p_mkt {leg["p_mkt"]:.1%}'
+            + f' · 证据可信度 {quality}/100（{score.get("version", "无契约")}，非命中概率）')
 
 
 def render_report(bundle, items, published=False):
@@ -224,7 +234,7 @@ def render_report(bundle, items, published=False):
         if group:
             lines += [_leg_text(leg) + '  ' for leg in group['legs']]
             lines += [f'整单实际倍数：{"／".join(group["effective_multiples"])}；'
-                      f'联合市场基准约 {group["p_mkt_joint"]:.1%}（独立近似）。低置信度条件推荐。', '']
+                      f'联合市场基准约 {group["p_mkt_joint"]:.1%}（独立近似）。证据门槛已通过，模型概率仍未验证。', '']
             for leg in group['legs']:
                 lines += [f'- {leg["num"]} 理由：' + '；'.join(_cell(r) for r in leg['reasons']),
                           '', f'  风险：{_cell(leg["risk"])}；撤销条件：{_cell(leg["withdraw_if"])}。', '']
@@ -256,7 +266,7 @@ def render_report(bundle, items, published=False):
             fields.append(_cell(option['label'] + ' ' + '／'.join('@' + str(b['odds']) for b in option['branches']))
                           if option else '不可用/待核')
         matchup = f'{match["home"]} VS {match["away"]}' if match['sport'] == 'football' else f'{match["away"]}（客） VS {match["home"]}（主）'
-        state = match['exclusion'] or '低置信度，具体证据见逐场附录'
+        state = match['exclusion'] or '证据达标候选，具体评分和风险见逐场附录'
         lines.append('| ' + ' | '.join([match['num'], match['kickoff'], _cell(match['league'] + ' ' + matchup), *fields, _cell(state)]) + ' |')
     lines += ['', '## 六类方向', '']
     for row in bundle['six']:
@@ -288,6 +298,11 @@ def render_report(bundle, items, published=False):
             first_fact, second_fact = (dim['away'], dim['home']) if match['sport'] == 'basketball' else (dim['home'], dim['away'])
             lines.append(f'| {dim["id"]:02d} {DIMENSIONS[dim["id"]-1]} | {_cell(first_fact)} | {_cell(second_fact)} | '
                          f'{STATUSES[dim["status"]]} · {_cell(dim["impact"])} |')
+        contracts = [o.get('evidence_confidence') for o in match.get('research_options', []) if o.get('evidence_confidence')]
+        if contracts:
+            best = max(contracts, key=lambda c: c['evidence_confidence'])
+            lines += ['', '证据政策评分：' + str(best['evidence_confidence']) + '/100；版本：' + best['version'],
+                      '评分缺口/门禁：' + '；'.join(_cell(r) for r in best['reasons'])]
         for source in evidence['sources']:
             lines.append(f'- 来源：{_cell(source["title"])} · {_cell(source["url"])} · '
                          f'发布时间 {source["published_at"] or "待核"}；适用时点 {source["effective_at"] or "待核"}。')

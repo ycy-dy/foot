@@ -32,6 +32,10 @@ def compare_quotes(bundle, source, now):
             changes.append(identity | {'kind': 'identity', 'severity': 'critical',
                 'message': '比赛身份或开赛时间发生变化，原选项需重新核实', 'before': leg['kickoff'], 'after': '当前身份未匹配'})
             continue
+        if match.get('status') != 'Selling':
+            changes.append(identity | {'kind': 'line_or_sale', 'severity': 'critical',
+                'message': '比赛已停售或非在售，不能发布新推荐', 'before': 'Selling', 'after': match.get('status')})
+            continue
         if moment(match['kickoff']) <= moment(now):
             changes.append(identity | {'kind': 'closed', 'severity': 'closed',
                 'message': '已到开赛时点，停止新增赛前判断；原票保留复盘', 'before': '赛前', 'after': '已开赛'})

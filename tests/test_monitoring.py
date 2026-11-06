@@ -54,7 +54,7 @@ def test_monitoring_views_require_admin_for_mutation(client, app, identity):
     assert client.post('/research/monitoring', data={'enabled': '1'}).status_code == 400
 
 
-def test_scheduler_dispatches_one_live_recheck_per_bucket_only_after_opt_in(cfg, tmp_path):
+def test_live_recheck_schedule_stays_disabled_even_with_stored_opt_in(cfg, tmp_path):
     from foot_web.engine.operations import Operations
     from foot_web.engine.rechecks import RecheckTasks
     from foot_web.services.notifications import Notifications
@@ -78,11 +78,8 @@ def test_scheduler_dispatches_one_live_recheck_per_bucket_only_after_opt_in(cfg,
     tasks.store.save_preferences({'enabled': '1', 'lead_minutes': '60', 'interval_minutes': '10'}, 'admin1')
     operations.tick(ANALYSIS_ASOF)
     operations.tick(ANALYSIS_ASOF)
-    assert len(calls) == 1
-    first = tasks.store.list()[0]
-    tasks.store.update(first['id'], status='succeeded', message='fixture')
-    operations.tick(ANALYSIS_ASOF+timedelta(minutes=11))
-    assert len(calls) == 2
+    assert calls == []
+    assert tasks.store.list() == []
 
 
 @pytest.mark.parametrize('veto_target', ['first_selected', 'second_selected', 'unselected', 'unconfirmed'])

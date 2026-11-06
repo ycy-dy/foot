@@ -19,4 +19,4 @@
 | `docs/` | 架构、目录和迁移说明 | 统一导航见 `docs/project-governance.md` |
 | `.env` | 密钥和配置 | 权限600，git 忽略；模板见 `.env.example` |
 
-当前没有生效的足球或篮球业务政策。新的分析、推荐、审核发布、定时任务和通知停用，待规格013及机器可读契约经用户确认后再恢复。旧 V6 阈值、23维、玩法结构、推荐页面和发布结构不得从旧文档、Git 历史或运行工件恢复。
+用户后续已授权规格014：现行policy.md/policy.yaml/scoring.md定义分段推荐、70%证据硬门槛和每日冻结台账。新草稿在runs/业务日/任务ID保存daily-ledger.draft.json，人工发布后publication目录冻结daily-ledger.json；台账页面/daily-ledger引用原发布，不另计票数。旧V6源文件/编辑器及history不恢复；自动计划与通知保持停用。上表删除状态描述为013阶段历史，现行以本段和014为准。

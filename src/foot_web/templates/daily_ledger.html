@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block title %}{{ bd }} · 每日推荐冻结台账{% endblock %}
+{% block body %}
+<div class="pagehead"><h1>每日推荐冻结台账</h1><form method="get"><input type="date" name="date" value="{{ bd }}" required><button class="btn">查询</button></form></div>
+<div class="notice">业务日 {{ bd }}。只列入已审核、管理员确认并原子发布的冻结版本；旧原票不改写。次日复盘在“复盘分析”按原业务日执行，结果独立版本记录。实际投注与返还留空。</div>
+{% for row in rows %}{% set f = row.frozen %}<section class="card"><h2>{{ f.publication_id }}</h2><p>{{ row.publication.status }} · 发布时点 {{ f.published_at }} · 选择哈希 {{ f.selection_sha256 }}</p>
+{% for ticket in f.rows %}<details open><summary>{{ ticket.title }} · {{ ticket.kind }}</summary><pre>{{ ticket.original_ticket|tojson(indent=2) }}</pre></details>{% else %}<p>本版本没有达标推荐。</p>{% endfor %}
+{% if f.unformed %}<h3>未形成推荐的栏目与原因</h3><pre>{{ f.unformed|tojson(indent=2) }}</pre>{% endif %}
+<p>台账哈希 {{ f.content_sha256 }}</p></section>{% else %}<section class="card"><p>本日尚无按当前评分政策冻结的已发布台账。研究草稿不冒充已发布；无达标组合的草稿会保存“不成串”记录。</p></section>{% endfor %}
+{% endblock %}

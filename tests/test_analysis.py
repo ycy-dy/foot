@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import pytest
+from foot_web.services.versions import RULE_FILES
 
 from conftest import ANALYSIS_ASOF, FakeFetcher, login, research_response
 from foot_web import create_app
@@ -53,7 +54,8 @@ def test_claude_failure_falls_back_to_codex_and_keeps_result_unpublished(cfg, tm
     root = Path(cfg['PROJECT_DIR'])
     project = tmp_path / 'project'
     project.mkdir()
-    for name in ('AGENTS.md', 'analysis_recommendation_system_v6_0.md', 'analysis_recommendation_system_v6_0.yaml'):
+    for name in RULE_FILES:
+        (project / name).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(root / name, project / name)
     config = cfg | {'PROJECT_DIR': str(project)}
     tasks = AnalysisTasks(config, launcher=lambda config, task_id: os.getpid())
@@ -100,7 +102,8 @@ def analysis_case(cfg, tmp_path):
 
     project = tmp_path / 'project'
     project.mkdir()
-    for name in ('AGENTS.md', 'analysis_recommendation_system_v6_0.md', 'analysis_recommendation_system_v6_0.yaml'):
+    for name in RULE_FILES:
+        (project / name).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(Path(cfg['PROJECT_DIR']) / name, project / name)
     config = cfg | {'PROJECT_DIR': str(project)}
     tasks = AnalysisTasks(config, launcher=lambda config, task_id: os.getpid())
@@ -211,7 +214,7 @@ def test_draft_is_accessible_to_admin_and_sanitized(analysis_case, identity):
     assert '未审核' in html and '未发布' in html
     assert '<script>alert' not in html and '<img src=x' not in html and 'href="javascript:' not in html
     assert client.get('/report?date=2026-11-04').status_code == 404
-    assert '未发布 / 2026-11-04' in client.get('/?date=2026-11-04').get_data(as_text=True)
+    assert '暂无通过当前政策' in client.get('/?date=2026-11-04').get_data(as_text=True)
 
 
 def test_simultaneous_requests_start_only_one_process(cfg):

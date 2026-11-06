@@ -6,6 +6,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
+from foot_web.services.versions import RULE_FILES
 
 from conftest import FakeFetcher, login
 
@@ -42,7 +43,8 @@ def project(cfg, tmp_path):
     root = tmp_path / 'project'
     root.mkdir()
     original = Path(cfg['PROJECT_DIR'])
-    for name in ('AGENTS.md', 'analysis_recommendation_system_v6_0.md', 'analysis_recommendation_system_v6_0.yaml'):
+    for name in RULE_FILES:
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
         (root / name).write_bytes((original / name).read_bytes())
     return cfg | {'PROJECT_DIR': str(root), 'DATA_DIR': str(tmp_path / 'state')}
 

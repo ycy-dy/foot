@@ -7,6 +7,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 from .recommendations import all_directions, build_bundle, selection_fingerprint
+from .evidence_confidence import passes
 from .research import ANALYSIS_REQUEST, confirmed_sources, fingerprint, json_text
 
 TEXT = {'type': 'string', 'minLength': 1, 'maxLength': 4000}
@@ -51,13 +52,13 @@ def decision_context(source, items, manifest, as_of):
                 # prose and source records on every market alternative.
                 options[leg['option_id']] = {key: copy.deepcopy(leg[key]) for key in (
                     'option_id', 'match_key', 'sport', 'num', 'home', 'away', 'kickoff', 'period',
-                    'market', 'L', 'label', 'options', 'p_mkt')}
+                    'market', 'L', 'label', 'options', 'p_mkt', 'evidence_confidence')}
             rows.append({'id': candidate_id(candidate), 'option_ids': [leg['option_id'] for leg in legs],
                          'p_mkt': candidate.get('p_mkt_joint', candidate.get('p_mkt'))})
         slots[slot] = rows
     # Team identity and original evidence are shared; do not repeat them in every score/market option.
     slim_options = {key: {field: leg[field] for field in
-                         ('option_id', 'match_key', 'sport', 'num', 'market', 'L', 'label', 'options', 'p_mkt')}
+                         ('option_id', 'match_key', 'sport', 'num', 'market', 'L', 'label', 'options', 'p_mkt', 'evidence_confidence')}
                     for key, leg in options.items()}
     matches = {item['match_key']: {key: item['match'][key] for key in
                                   ('sport', 'num', 'business_date', 'kickoff', 'period', 'league', 'home', 'away')}
@@ -77,6 +78,7 @@ def make_decision_prompt(context):
         '本轮“今天”指业务日' + context['business_date'] + '。当前是总任务的最终推荐阶段，'
         '现行项目规则原文在输入analysis_request.rules中（旧输入可能未保存），必须遵守其最新修订。\n'
         '你是最终推荐决策员。逐场价格盲证据已冻结；现在必须审阅全部合规候选，返回真实取舍，不得只解释程序首选。'
+        '每个候选已通过evidence_confidence>=70的版本化证据政策门槛；这是证据评分不是胜率，不能自行改分或绕过关键阻断。'
         '市场基准p_mkt不是模型概率、价值证据或收益保证，不能上调；模型概率和EV保持null。'
         '逐个slot明确返回candidate_id（无剩余合规项才为null）和取舍理由。先审阅证据、提出有来源的风险否决，'
         '再在每个slot未被否决的候选中选最高p_mkt；仅同概率可自由取舍，不能无依据跳过高排名项。'
@@ -138,11 +140,13 @@ def validate_decision(value, context, source, items, manifest, as_of):
 
     bundle = build_bundle(source, items, manifest, as_of, selector=select)
     for leg in all_directions(bundle, include_structures=True):
+        if not passes(leg.get('evidence_confidence')):
+            raise ValueError('实际推荐腿未通过证据可信度硬门槛')
         opinion = assessments.get(leg['option_id'])
         if opinion is None:
             raise ValueError('实际推荐腿缺少AI返回理由')
-        if not opinion['source_ids'] and not any('仅按市场基准' in r for r in opinion['reasons']):
-            raise ValueError('AI缺非赔率来源且未披露仅按市场基准')
+        if not set(opinion['source_ids']) & confirmed.get(leg['match_key'], set()):
+            raise ValueError('最终推荐必须引用已核实非赔率来源，不能仅按市场基准绕过70%门槛')
     return copy.deepcopy(value)
 
 
@@ -163,8 +167,12 @@ def apply_decision(value, context, source, items, manifest, as_of, provenance):
         for key in ('reasons', 'risk', 'withdraw_if', 'mechanism'):
             leg[key] = copy.deepcopy(opinion[key])
         leg['sources'] = [sources[leg['match_key']][key] for key in opinion['source_ids']]
+        if not passes(leg.get('evidence_confidence')):
+            raise ValueError('AI最终应用的推荐腿未通过证据可信度硬门槛')
         leg['evidence_state'] = 'ai_sourced_pending_manual_review' if leg['sources'] else 'market_only'
         leg['ai_decision_sha256'] = provenance['validated_sha256']
+    bundle['audit_input']['singles'] = [row['leg'] for row in bundle['singles']]
+    bundle['audit_input']['six'] = [row['leg'] for row in bundle['six'] if row['leg']]
     bundle['ai_decision'] = copy.deepcopy(provenance)
     bundle['ai_summary'] = value['summary']
     bundle['reference_only'] = False

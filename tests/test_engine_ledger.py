@@ -7,7 +7,6 @@ from foot_web.services import engine
 from foot_web.services.ledger import Ledger
 
 FIX = Path(__file__).parent / 'fixtures'
-ROOT = Path(__file__).resolve().parents[1]
 
 
 def day():
@@ -42,9 +41,18 @@ def test_analyze_pools_gate_and_ranking():
     assert len(res['structures'][1]['rows']) == 8
 
 
-def test_ledger_stats_and_filters():
-    lg = Ledger(ROOT)
-    assert lg.all(), 'settled_records.json 应存在'
+def test_ledger_stats_and_filters(tmp_path):
+    folder = tmp_path / 'ledger/data'
+    folder.mkdir(parents=True)
+    rows = [{'business_date': day, 'kind': kind, 'title': kind, 'legs': [],
+             'hit': hit, 'superseded': False, 'theoretical_cost': '2',
+             'theoretical_return': '4' if hit else '0'}
+            for day, kind, hit in [('2026-11-03', '足球最终串', True),
+                                   ('2026-11-03', '胜平负', True),
+                                   ('2026-11-04', '足球最终串', None)]]
+    (folder / 'settled_records.json').write_text(json.dumps(rows))
+    lg = Ledger(tmp_path, tmp_path / 'isolated-state')
+    assert lg.all()
     cur = lg.query()
     assert all(not r['superseded'] for r in cur)
     st = lg.stats('')

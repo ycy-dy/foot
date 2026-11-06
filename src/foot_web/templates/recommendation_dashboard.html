@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block title %}{{ bd }} · 当日赛程与证据门槛推荐{% endblock %}
+{% block body %}
+<div class="pagehead"><div><h1>当日赛程与推荐</h1><p>{{ bd }} · {{ week }} · 北京时间</p></div><div class="actions">
+<select data-date-select aria-label="业务日">{% for d in dates %}<option value="{{ d }}" {{ 'selected' if d == bd }}>{{ d }}</option>{% endfor %}</select>
+{% if user.role == 'admin' %}<button class="btn primary" id="btn-recompute" data-analysis-date="{{ bd }}">重新分析</button>{% include 'analysis_stop_button.html' %}{% endif %}
+<a class="btn" href="/daily-ledger?date={{ bd }}">每日推荐台账</a></div></div>
+<div class="notice"><b>证据可信度≥70%才可推荐。</b>这是有版本的证据政策评分，不是命中概率；低于门槛、未知或关键证据冲突均不凑单。整单市场概率为独立近似，模型未部署、EV未知。不保证命中或收益。</div>
+{% if error %}<div class="notice">{{ error }}</div>{% endif %}
+{% if user.role == 'admin' %}{% include 'analysis_status.html' %}{% endif %}
+<section class="card"><h2>最终推荐汇总</h2>
+{% if report and report.publication and report.publication.status == 'published' %}<div class="md">{{ report.summary_html|safe }}</div><a href="/report?date={{ bd }}">完整冻结报告</a>
+{% else %}<p>本业务日暂无通过当前政策、70%证据门槛及管理员发布审核的推荐。请先完成研究，不将赔率排序当AI结论。</p>{% endif %}
+<p>足球早中场①／晚场②、篮球早场／晚场分别筛选；每组每分支实际倍数严格&gt;2.5。无合格项记录原因；梦想单另列。</p></section>
+<section class="card"><h2>完整赛程与研究状态</h2><p>以下仅为官方赛程和状态，不是推荐。足球主前客后；篮球客前主后。不会自动读取或发送钉钉消息。</p>
+<div class="scroll"><table class="grid"><thead><tr><th>项目</th><th>编号</th><th>开球</th><th>赛事</th><th>对阵</th><th>时段</th><th>状态／排除原因</th></tr></thead><tbody>
+{% for m in matches %}<tr><td>{{ '足球' if m.sport == 'football' else '篮球' }}</td><td>{{ m.num }}</td><td>{{ m.kickoff }}</td><td>{{ m.league }}</td><td>{% if m.sport == 'football' %}{{ m.home }} VS {{ m.away }}{% else %}{{ m.away }}（客） VS {{ m.home }}（主）{% endif %}</td><td>{{ m.period }}</td><td>{{ m.exclusion or '待非赔率证据研究、评分及AI决策' }}</td></tr>{% else %}<tr><td colspan="7">暂无可用官方赛程；不会编造比赛或推荐。</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endblock %}

@@ -5,6 +5,7 @@ import threading
 from pathlib import Path
 
 import pytest
+from foot_web.services.versions import RULE_FILES
 
 from conftest import ANALYSIS_ASOF, FakeFetcher, login
 from foot_web.engine import providers
@@ -201,7 +202,8 @@ def test_fallback_and_final_error_logs_survive_the_task(cfg, tmp_path, monkeypat
 
     project = tmp_path / 'project'
     project.mkdir()
-    for name in ('AGENTS.md', 'analysis_recommendation_system_v6_0.md', 'analysis_recommendation_system_v6_0.yaml'):
+    for name in RULE_FILES:
+        (project / name).parent.mkdir(parents=True, exist_ok=True)
         (project / name).write_bytes((Path(cfg['PROJECT_DIR']) / name).read_bytes())
     config = cfg | {'PROJECT_DIR': str(project)}
     tasks = module.AnalysisTasks(config, launcher=lambda *args: os.getpid())

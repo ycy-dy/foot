@@ -1,17 +1,16 @@
-"""Current product contract: no active sports analysis/recommendation policy."""
+"""Legacy editors remain removed; spec014 enables manual evidence-gated research."""
 from pathlib import Path
 
 import pytest
 from conftest import login
-from foot_web.services.versions import rules_manifest
-from foot_web.services.publications import PublicationError
+from foot_web.services.versions import RULE_FILES, rules_manifest
 
 
-def test_manifest_policy_unavailable(cfg):
+def test_manifest_current_policy_enabled_without_legacy_files(cfg):
     manifest, texts = rules_manifest(cfg['PROJECT_DIR'])
-    assert manifest['compatibility'] == 'policy_unavailable'
-    assert manifest['spec_revision'] == 'policy_removed'
-    assert set(texts) == {'AGENTS.md'}
+    assert manifest['compatibility'] == 'supported_subset'
+    assert manifest['evidence_threshold_percent'] == 70
+    assert set(texts) == set(RULE_FILES)
     assert not list(Path(cfg['PROJECT_DIR']).glob('analysis_recommendation_system_v6_0.*'))
 
 
@@ -20,7 +19,7 @@ def test_removed_pages_and_home(client, identity, app):
     page = client.get('/')
     assert page.status_code == 200
     text = page.get_data(as_text=True)
-    assert '分析与推荐体系已移除' in text
+    assert '70' in text
     assert '/systems/analysis' not in text and '/systems/recommendation' not in text
     assert 'system_documents' not in app.extensions
     assert client.get('/systems/analysis').status_code == 404
@@ -28,12 +27,12 @@ def test_removed_pages_and_home(client, identity, app):
     assert client.get('/healthz').json == {'ok': True}
 
 
-@pytest.mark.parametrize('path', ['/api/recompute', '/analysis/old/resume', '/research/old/publish', '/automation', '/reviews'])
-def test_http_strategy_writes_closed(client, identity, path):
+@pytest.mark.parametrize('path', ['/automation', '/research/notifications'])
+def test_automatic_writes_still_closed(client, identity, path):
     login(client, identity)
     response = client.post(path, json={})
     assert response.status_code == 409
-    assert '体系已删除' in response.json['message']
+    assert '尚未启用' in response.json['message']
 
 
 def test_policy_gate_keeps_role_protection(client, identity):
@@ -42,16 +41,9 @@ def test_policy_gate_keeps_role_protection(client, identity):
     assert client.post('/reviews').status_code == 403
 
 
-def test_background_entrypoints_closed(app, monkeypatch):
-    for key, args in [('analysis_tasks', ('2026-11-06', 'admin1')),
-                      ('review_tasks', ('2026-11-06', 'admin1')),
-                      ('recheck_tasks', ('old-publication', 'admin1'))]:
-        with pytest.raises(ValueError, match='体系已删除'):
-            app.extensions[key].start(*args)
-    with pytest.raises(ValueError, match='体系已删除'):
-        app.extensions['analysis_tasks'].resume('old', 'admin1')
-    with pytest.raises(PublicationError, match='体系已删除'):
-        app.extensions['publications'].check('old', 'admin1')
+def test_manual_entrypoint_enabled_but_stored_schedules_never_dispatch(app, monkeypatch):
+    task, reused = app.extensions['analysis_tasks'].start('2026-11-06', 'admin1')
+    assert task['status'] == 'queued' and not reused
     def forbidden(*args, **kwargs):
         pytest.fail('must not dispatch stored schedules')
     monkeypatch.setattr(app.extensions['jobs'], 'claim_due', forbidden)

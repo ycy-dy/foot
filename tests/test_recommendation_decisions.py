@@ -3,7 +3,7 @@ import copy
 
 import pytest
 
-from conftest import ANALYSIS_ASOF, FakeFetcher, decision_response, research_payload
+from conftest import ANALYSIS_ASOF, FakeFetcher, decision_response, audited_research_payload as research_payload
 from foot_web.engine.tasks import prepare_input
 from foot_web.services.research import fingerprint, match_key
 from foot_web.services.selection import (apply_decision, candidate_id, decision_context, make_decision_prompt,
@@ -23,6 +23,19 @@ def decision_case(cfg):
     context = decision_context(source, items, manifest, ANALYSIS_ASOF)
     result = decision_response(make_decision_prompt(context))
     return source, items, manifest, context, result
+
+
+def test_unsourced_legacy_fixture_cannot_become_recommendation(cfg):
+    from conftest import research_payload as unsourced_payload
+    from foot_web.services.recommendations import all_directions, build_bundle
+    source = prepare_input(cfg, {'business_date': '2026-11-04'}, FakeFetcher(), ANALYSIS_ASOF)
+    items = [{'match_key': match_key(m), 'match': m, 'status': 'succeeded',
+              'payload': unsourced_payload(m)} for m in source['football'] + source['basketball']]
+    manifest, _ = rules_manifest(cfg['PROJECT_DIR'])
+    context = decision_context(source, items, manifest, ANALYSIS_ASOF)
+    assert not context['options']
+    bundle = build_bundle(source, items, manifest, ANALYSIS_ASOF)
+    assert not all_directions(bundle, include_structures=True)
 
 
 def validate(case, result=None):
@@ -67,6 +80,9 @@ def test_actual_legs_use_ai_returned_reasons_not_local_generic_templates(decisio
     from foot_web.services.recommendations import all_directions
     directions = all_directions(bundle, include_structures=True)
     assert directions and not bundle['reference_only']
+    assert all(leg['evidence_confidence']['eligible'] and
+               leg['evidence_confidence']['evidence_confidence'] >= 70 for leg in directions)
+    assert all(leg['sources'] for leg in directions)
     assert all(leg['reasons'][0].startswith('模拟AI：') and leg['risk'].startswith('模拟AI返回：') for leg in directions)
     assert all(leg['ai_decision_sha256'] == 'verified-response' for leg in directions)
 
@@ -77,7 +93,7 @@ def test_evidence_backed_ai_veto_changes_selected_alternative(decision_case):
                    'published_at': ANALYSIS_ASOF.isoformat(), 'effective_at': ANALYSIS_ASOF.isoformat(),
                    'group_id': 'official-news', 'tier': 'L1'}
     for item in items:
-        item['payload']['sources'] = [source_info]
+        item['payload']['sources'].append(source_info)
         item['payload']['dimensions'][3].update(
             status='verified', source_ids=['official-news'],
             home='官方确认关键组织者缺阵', away='已核对官方伤停名单')

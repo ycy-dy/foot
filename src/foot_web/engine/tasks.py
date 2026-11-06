@@ -96,7 +96,25 @@ class AnalysisTasks:
                                               finished_at=datetime.now(TZ).isoformat(timespec='seconds'))
 
     def start(self, business_date, requested_by, reuse_from=None):
-        raise ValueError('分析与推荐体系已删除，新分析已停用')
+        from ..services.versions import rules_manifest
+        manifest, _ = rules_manifest(self.config['PROJECT_DIR'])
+        if manifest.get('compatibility') != 'supported_subset':
+            raise ValueError('当前规则未通过兼容性检查，不能启动分析')
+        if date.fromisoformat(business_date).isoformat() != business_date:
+            raise ValueError('业务日必须为YYYY-MM-DD')
+        if reuse_from:
+            parent = self.store.analysis(reuse_from)
+            if not parent or parent['business_date'] != business_date:
+                raise ValueError('复用任务业务日不匹配')
+        self.latest(business_date)  # Recover a dead worker before transactional admission.
+        task_id = 'analysis-' + datetime.now(TZ).strftime('%Y%m%dT%H%M%S%f') + '-' + uuid.uuid4().hex[:8]
+        row, created = self.store.begin_analysis(task_id, business_date, requested_by)
+        if created:
+            if reuse_from:
+                self.research.set_parent(task_id, reuse_from)
+            self.store.event('analysis_requested', requested_by, detail={'task_id': task_id})
+            row = self._launch(task_id)
+        return self.present(row), not created
 
     def cancel(self, task_id, actor):
         self.research.cancel(task_id)
@@ -104,7 +122,17 @@ class AnalysisTasks:
         return self.get(task_id)
 
     def resume(self, task_id, actor):
-        raise ValueError('分析与推荐体系已删除，续跑已停用')
+        from ..services.versions import rules_manifest, same_version
+        current, _ = rules_manifest(self.config['PROJECT_DIR'])
+        workflow = self.research.workflow(task_id)
+        if (current.get('compatibility') != 'supported_subset' or not workflow
+                or not same_version(current, workflow['manifest'])):
+            raise ValueError('规则或程序版本已变化，请重新分析')
+        row, created = self.research.resume(task_id)
+        if created:
+            self.store.event('analysis_resumed', actor, detail={'task_id': task_id})
+            row = self._launch(task_id)
+        return self.present(row), not created
 
 
 def output_dir(config, task):

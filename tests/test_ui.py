@@ -18,23 +18,15 @@ class Elements(HTMLParser):
                 if key in attrs and (value is None or attrs[key] == value)]
 
 
-def test_tabs_and_filters_have_accessible_states(client, identity):
+def test_schedule_table_and_date_selector_are_accessible(client, identity):
     login(client, identity)
-    page = Elements(client.get('/?date=2026-11-04').get_data(as_text=True))
-    tabs = page.with_attr('role', 'tab')
-    panels = page.with_attr('role', 'tabpanel')
-    assert len(tabs) == len(panels) == 6
-    assert sum(attrs['aria-selected'] == 'true' for _, attrs in tabs) == 1
-    for _, attrs in tabs:
-        panel = next(p for _, p in panels if p['id'] == attrs['aria-controls'])
-        assert panel['aria-labelledby'] == attrs['id']
-        assert ('hidden' not in panel) == (attrs['aria-selected'] == 'true')
-    filters = page.with_attr('data-f')
-    assert len(filters) == 6 and all(tag == 'button' for tag, _ in filters)
-    assert sum(attrs['aria-pressed'] == 'true' for _, attrs in filters) == 1
-    assert page.with_attr('id', 'match-empty')
-    assert page.with_attr('id', 'filter-result')
+    html = client.get('/?date=2026-11-04').get_data(as_text=True)
+    page = Elements(html)
+    assert page.with_attr('aria-label', '业务日')
     assert page.with_attr('aria-current', 'page')[0][1]['href'] == '/'
+    assert '完整赛程与研究状态' in html and '不是推荐' in html
+    assert any(tag == 'table' for tag, _ in page.elements)
+    assert not page.with_attr('role', 'tab')  # legacy recommendation tabs are gone
 
 
 def test_viewer_has_navigation_but_no_admin_actions(client, identity):
@@ -57,8 +49,8 @@ def test_empty_data_and_unavailable_source_are_visible(client, identity, app, mo
     response = client.get('/')
     assert response.status_code == 200
     html = response.get_data(as_text=True)
-    assert '官方数据获取失败' in html and '测试快照不可用' in html
-    assert '没有符合条件的比赛' in html
+    assert '暂无可用官方赛程' in html
+    assert '不会编造比赛或推荐' in html
     assert '不保证命中或收益' in html
 
 
@@ -78,7 +70,14 @@ def test_static_assets_and_icon_references(client, identity):
     assert 'prefers-reduced-motion' in client.get('/static/style.css').get_data(as_text=True)
 
 
-def test_statistics_does_not_label_historical_rate_as_prediction(client, identity):
+def test_statistics_does_not_label_historical_rate_as_prediction(client, identity, app):
+    import json
+    from pathlib import Path
+    folder = Path(app.config['FOOT']['PROJECT_DIR']) / 'ledger/data'
+    folder.mkdir(parents=True)
+    (folder / 'settled_records.json').write_text(json.dumps([
+        {'business_date': '2026-10-01', 'kind': '胜平负', 'title': '离线结算样例',
+         'legs': [], 'hit': True, 'sim_cost': '2', 'theoretical_return': '3.6'}]))
     login(client, identity)
     html = client.get('/stats?month=2026-10').get_data(as_text=True)
     assert '历史已结算命中率' in html

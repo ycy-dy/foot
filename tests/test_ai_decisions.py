@@ -116,8 +116,8 @@ def test_decision_redacts_input_return_and_events(tmp_path):
 @pytest.fixture
 def review_case(tmp_path):
     cfg = {'PROJECT_DIR': str(tmp_path), 'DATA_DIR': str(tmp_path / 'var')}
-    for name in ('AGENTS.md', 'analysis_recommendation_system_v6_0.md', 'analysis_recommendation_system_v6_0.yaml'):
-        (tmp_path / name).write_text('冻结规则：不改原票，不编造概率。')
+    from conftest import copy_rules
+    copy_rules(tmp_path)
     ticket = {'business_date': '2026-11-04', 'ledger': 'rec', 'kind': '足球最终串',
               'title': '原票', 'source_file': 'original.md', 'snapshot': '2026-11-04T12:00:00+08:00',
               'legs': [{'sport': 'football', 'number': '周三001', 'matchup': '主队 VS 客队', 'market': 'HAD',

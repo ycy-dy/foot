@@ -7,7 +7,7 @@ from pathlib import Path
 import markdown as md
 
 # 新产出写入 runs/<业务日>/<run_id>/；历史产出在 history/daily/
-DIR_PATTERNS = ('runs/*/*', 'history/daily/analysis_*', 'history/daily/review_*_and_analysis_*', 'history/daily/daily_analysis_*')
+DIR_PATTERNS = ('runs/*/*',)
 
 
 def latest_report(project_dir, business_date=None, data_dir=None):

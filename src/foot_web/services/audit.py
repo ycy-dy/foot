@@ -2,6 +2,7 @@
 import itertools
 from decimal import Decimal
 
+
 ALLOWED = [{'HAD', 'DD'}, {'HAD', 'TTG'}, {'HHAD', 'TTG'}, {'HHAD', 'DD'}, {'HAFU', 'DD'}, {'HAFU', 'TTG'}]
 SAME_ALLOWED = {'HAD', 'HAFU'}
 GATE = Decimal('2.5')
@@ -35,7 +36,12 @@ def effective_multiples(legs):
 
 def audit(data, require_reasons=True):
     """返回 (errors, notes)。data 格式见 tools/audit_recommendations.py。"""
+    from .evidence_confidence import passes
     errs, notes, finals = [], [], {}
+    strict_evidence = data.get('require_evidence_confidence') is True
+    for lg in data.get('singles', []) + data.get('six', []) + data.get('dream_legs', []):
+        if strict_evidence and not passes(lg.get('evidence_confidence')):
+            errs.append(f'{lg.get("num", "待核")}: 未通过证据可信度硬门槛')
     for g in data.get('groups', []):
         n, legs = g['name'], g['legs']
         if len(legs) != 2:
@@ -48,6 +54,10 @@ def audit(data, require_reasons=True):
             finals[lg['num']] = lg
             if require_reasons and len([r for r in lg.get('reasons', []) if str(r).strip()]) < 2:
                 errs.append(f'{n} {lg["num"]}: 理由少于2条')
+            # New recommendation artifacts carry the score contract. Historical
+            # settlement-only audit rows have no score and remain immutable.
+            if (strict_evidence or 'evidence_confidence' in lg) and not passes(lg.get('evidence_confidence')):
+                errs.append(f'{n} {lg["num"]}: 未通过证据可信度硬门槛')
             for o in lg['options']:
                 if g['sport'] == 'football' and Decimal(o['odds']) < MIN_FB:
                     errs.append(f'{n} {lg["num"]} {o["label"]}@{o["odds"]}<1.33')

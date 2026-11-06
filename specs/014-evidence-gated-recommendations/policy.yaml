@@ -1,0 +1,67 @@
+schema_version: '1.0'
+spec_revision: '2026-11-06-evidence-70-01'
+enabled: true
+timezone: Asia/Shanghai
+canonical_document: specs/014-evidence-gated-recommendations/policy.md
+evidence:
+  threshold_percent: 70
+  score_version: evidence-policy-1.0.0
+  contract: specs/014-evidence-gated-recommendations/scoring.md
+  missing_score_action: no_recommendation
+  score_kind: versioned_policy_evidence_score_not_event_probability
+  allow_ai_self_score: false
+football:
+  window_start: '12:00:00'
+  window_end_next_day: '09:00:00'
+  inclusive: true
+  display_order: home_away
+  minimum_selection_odds: '1.33'
+  maximum_pairs_per_period: 1
+  early_middle_merge: true
+  late_independent: true
+  dimensions: 23
+  categories: [胜平负, 让球, 进球数, 二三球, 半全场, 双平]
+  allowed_structures:
+    - [HAD, DD]
+    - [HAD, TTG]
+    - [HHAD, TTG]
+    - [HHAD, DD]
+    - [HAFU, DD]
+    - [HAFU, TTG]
+    - [HAD, HAD]
+    - [HAFU, HAFU]
+  dream_distinct_matches: 4
+  dream_format: 4x1
+basketball:
+  display_order: away_home
+  spread_perspective: home
+  full_business_day: true
+  late_starts_at: '23:00:00'
+  maximum_pairs_per_period: 1
+  cross_period_fill: false
+  markets: [MNL, HDC, HILO]
+arithmetic:
+  type: Decimal
+  effective_multiple_strictly_greater_than: '2.5'
+  every_winning_branch: true
+  total_investment_denominator: true
+decision:
+  rank: joint_p_mkt_desc_after_hard_gates
+  p_mkt_method: proportional_devig_complete_same_source_snapshot_market
+  joint_method: labelled_independence_approximation
+  non_odds_raise_p_mkt: false
+  ai_required: true
+  providers: [claude, codex]
+  min_reasons_per_option: 2
+  require_non_odds_source: true
+  require_failure_path_and_withdrawal: true
+  conditional_pair_required: false
+  unverified_model_probability: null
+  unverified_EV: null
+publication:
+  manual_confirmation: true
+  audit_script: tools/audit_recommendations.py
+  daily_frozen_ledger: true
+  record_no_pair_reason: true
+  automatic_notifications: false
+  execute_bet: false

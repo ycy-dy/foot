@@ -54,7 +54,22 @@ class ReviewTasks:
         return [self._recover(row) for row in self.jobs.reviews()]
 
     def start(self, business_date, actor):
-        raise ValueError('业务体系已删除，新的AI复盘任务已停用；既有记录仍可读取')
+        from ..services.versions import rules_manifest
+        manifest, _ = rules_manifest(self.config['PROJECT_DIR'])
+        if manifest.get('compatibility') != 'supported_subset':
+            raise ValueError('当前规则未通过兼容性检查，不能启动AI复盘')
+        if date.fromisoformat(business_date).isoformat() != business_date:
+            raise ValueError('业务日必须为YYYY-MM-DD')
+        self.latest()
+        task_id = 'review-' + datetime.now(TZ).strftime('%Y%m%dT%H%M%S%f') + '-' + uuid.uuid4().hex[:8]
+        row, created = self.jobs.begin_review(task_id, business_date, actor)
+        if created:
+            try:
+                row = self.jobs.update_review(task_id, worker_pid=self.launcher(self.config, task_id))
+            except (OSError, subprocess.SubprocessError):
+                row = self.jobs.update_review(task_id, status='failed', message='后台复盘进程无法启动',
+                                              finished_at=datetime.now(TZ).isoformat())
+        return row, not created
 
 
 def run_review(config, task_id, service=None):
@@ -63,7 +78,21 @@ def run_review(config, task_id, service=None):
         return
     task = jobs.review(task_id)
     try:
-        raise ValueError('业务体系已删除，后台复盘策略已停用')
+        from ..services.versions import rules_manifest, research_rules
+        from ..services.reviews import ReviewService
+        from ..services.review_analysis import REVIEW_SCHEMA, review_prompt, validate_review
+        from .decisions import decide
+        manifest, texts = rules_manifest(config['PROJECT_DIR'])
+        if manifest.get('compatibility') != 'supported_subset':
+            raise ValueError('当前规则未通过兼容性检查')
+        def analyst(result):
+            return decide(config, Path(result['folder']) / 'ai-review',
+                          review_prompt(result, research_rules(texts)), REVIEW_SCHEMA,
+                          lambda payload: validate_review(payload, result['rows']))
+        reviewer = service or ReviewService(config, analyst=analyst)
+        if not getattr(reviewer, 'analyst', None):
+            raise ValueError('AI复盘分析器不可用，不更新成功台账')
+        reviewer.run(task['business_date'], task_id)
     except Exception as exc:
         # 只公开我们定义的缺原票错误，外部响应/路径/凭证不写任务消息。
         from .providers import ProviderError

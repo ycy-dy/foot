@@ -4,10 +4,10 @@ from conftest import login
 def test_index_lists_today(client, identity):
     login(client, identity)
     html = client.get('/?date=2026-11-04').get_data(as_text=True)
-    assert '2026-11-04 周三 今日推荐' in html
+    assert '2026-11-04' in html and '当日赛程与推荐' in html
     assert '莱比锡红牛' in html and '曼彻斯特城' in html
     assert '（客）' in html and '（主）' in html          # 篮球客前主后
-    for panel in ('足球推荐', '篮球推荐', '八结构推荐', '六类方向', '逐场分析'):
+    for panel in ('最终推荐汇总', '完整赛程与研究状态', '70%'):
         assert panel in html
     assert '早中场①' in html and '晚场②' in html
 
@@ -28,9 +28,9 @@ def test_match_detail(client, identity):
     assert client.get('/match/football/周三999').status_code == 404
 
 
-def test_report_found_in_history(client, identity):
+def test_unpublished_report_not_inferred_from_historical_files(client, identity):
     login(client, identity)
-    assert client.get('/report?date=2026-11-04').status_code == 200
+    assert client.get('/report?date=2026-11-04').status_code == 404
 
 
 def test_ledger_history_stats_pages(client, identity):
@@ -38,7 +38,8 @@ def test_ledger_history_stats_pages(client, identity):
     assert '台账查询' in client.get('/ledger').get_data(as_text=True)
     assert client.get('/ledger?group=最终推荐&state=miss&from=2026-10-01').status_code == 200
     h = client.get('/history?date=2026-11-04').get_data(as_text=True)
-    assert '历史推荐查询' in h and '已替代' in h
+    assert '历史推荐查询' in h
+    assert '该业务日没有台账记录' in h
     s = client.get('/stats?month=2026-10').get_data(as_text=True)
     assert '命中率统计' in s and '分类别命中率' in s
     assert client.get('/api/stats').get_json()['success']

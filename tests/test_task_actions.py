@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 import pytest
+from foot_web.services.versions import RULE_FILES
 
 from conftest import FakeFetcher, login
 from foot_web import create_app
@@ -18,7 +19,8 @@ from test_ui import Elements
 def actions(cfg, tmp_path, identity):
     root = tmp_path / 'project'
     root.mkdir()
-    for name in ('AGENTS.md', 'analysis_recommendation_system_v6_0.md', 'analysis_recommendation_system_v6_0.yaml'):
+    for name in RULE_FILES:
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
         (root / name).write_bytes((Path(cfg['PROJECT_DIR']) / name).read_bytes())
     folder = root / 'ledger' / 'data'
     folder.mkdir(parents=True)

@@ -62,7 +62,16 @@
 - **范围**：AGENTS持续规则、README导航/干净历史状态、Issue协作指南、GitHub统一Issue模板、本台账；不纳入其他工作区数据改动。
 - **结果**：每个新需求/新问题创建或更新Issue，记录验收/决策/验证/提交/风险和下一步；全部完成才关闭，网络不可用如实标待同步，不泄露凭证。
 - **验证**：Markdown本地链接、Issue模板YAML前置字段、暂存差异校验；远程Issue创建与读取；无运行时代码改动，不重跑全量或重启服务。旧测试兼容缺口不因本项完成而解决。
-- **推送目标**：origin/main；提交时待推送，最终状态见Issue总结及当次答复。
+- **同步结果补记**：edc7e2b已推送并核验远程，Issue #1完成关闭。
+
+## C20261106-006 · 70%证据推荐与每日冻结台账
+
+- **关联**：[Issue #4](https://github.com/ycy-dy/foot/issues/4)、[规格014](../specs/014-evidence-gated-recommendations/spec.md)。
+- **范围**：现行policy/评分契约、版本manifest、手动研究/AI取舍/审核发布链路、70%全栏目门槛、当日赛程主页与日台账、原票复盘关联、隔离测试迁移和工程入口；不恢复V6文件或history，不纳入原环境模板/运行台账/runs/var。
+- **关键修复**：不能用条件推荐凑数；每腿独立可信证据达70；发布时重算证据时效、停售拦截；完整规则输入不使用日志长度截断；任务新建/复用返回契约一致。草稿含不成串原因、发布冻结原价/分支/分数/来源/AI与审核哈希。
+- **验证/部署**：见[本轮验证记录](../specs/014-evidence-gated-recommendations/verification.md)，提交前补齐。独立模型未训练/校准，不承诺命中或收益，不自动投注/通知/计划。
+- **提交定位**：`feat: evidence-gated daily recommendations and frozen ledger [C20261106-006]`；Refs #4。目标origin/main，提交后推送和核验；尚未通过真实比赛全链路的项目保持开放。
+
 
 
 

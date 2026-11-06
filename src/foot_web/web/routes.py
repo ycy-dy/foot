@@ -45,7 +45,36 @@ def healthz():
 
 @bp.get('/')
 def index():
-    return render_template('policy_removed.html')
+    from ..services.research import exclusion_reason
+    try:
+        fb, fb_meta, bk, bk_meta = load()
+        error = None
+    except Exception:
+        fb, bk, fb_meta, bk_meta = [], [], {}, {}
+        error = '官方赛程及快照不可用，暂不生成推荐'
+    bd, dates = pick_date(fb, bk)
+    rows = [dict(m) for m in fb + bk if m['business_date'] == bd]
+    now = datetime.now(TZ)
+    for m in rows:
+        m['exclusion'] = exclusion_reason(m, now)
+    report = latest_report(current_app.config['FOOT']['PROJECT_DIR'], bd, current_app.config['FOOT']['DATA_DIR'])
+    return render_template('recommendation_dashboard.html', bd=bd, week=markets.weekday_label(bd),
+                           dates=dates or [bd], matches=rows, error=error, report=report,
+                           analysis_task=current_app.extensions['analysis_tasks'].latest(bd)
+                           if g.user['role'] == 'admin' else None)
+
+
+@bp.get('/daily-ledger')
+def daily_ledger_view():
+    from ..services.daily_ledger import DailyLedgerService
+    day = request.args.get('date', datetime.now(TZ).date().isoformat())
+    try:
+        datetime.strptime(day, '%Y-%m-%d')
+    except ValueError:
+        abort(400)
+    service = DailyLedgerService(current_app.config['FOOT'])
+    rows = service.list(day)
+    return render_template('daily_ledger.html', bd=day, rows=rows)
 
 
 
