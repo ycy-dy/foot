@@ -70,8 +70,13 @@
 - **范围**：现行policy/评分契约、版本manifest、手动研究/AI取舍/审核发布链路、70%全栏目门槛、当日赛程主页与日台账、原票复盘关联、隔离测试迁移和工程入口；不恢复V6文件或history，不纳入原环境模板/运行台账/runs/var。
 - **关键修复**：不能用条件推荐凑数；每腿独立可信证据达70；发布时重算证据时效、停售拦截；完整规则输入不使用日志长度截断；任务新建/复用返回契约一致。草稿含不成串原因、发布冻结原价/分支/分数/来源/AI与审核哈希。
 - **验证/部署**：见[本轮验证记录](../specs/014-evidence-gated-recommendations/verification.md)，提交前补齐。独立模型未训练/校准，不承诺命中或收益，不自动投注/通知/计划。
-- **提交定位**：`feat: evidence-gated daily recommendations and frozen ledger [C20261106-006]`；Refs #4。目标origin/main，提交后推送和核验；尚未通过真实比赛全链路的项目保持开放。
+- **提交定位**：`73aef16`，Refs #4。首次和一次限时重试push均网络超时，后续推送将一并同步；本地服务已部署，真实比赛全链路保持开放。
 
+## C20261106-007 · 逐场分析入口与证据玩法明细
 
-
+- **关联**：[Issue #5](https://github.com/ycy-dy/foot/issues/5)、[规格015](../specs/015-per-match-analysis/spec.md)。
+- **范围**：首页每场分析链接、比赛详情只读AI研究摘要、精确身份/版本匹配projection、逐玩法证据分与理由风险撤销、管理员完整证据页评分、隔离测试与说明。
+- **权限/边界**：viewer可读摘要不获得管理员研究日志入口，GET不运行AI不发布；无研究标待分析，旧版/低分不当当前推荐，冻结研究价与当前报价分开。不读取DWS或发送消息。
+- **验证**：专项4项通过，全量/部署结果见[015验证](../specs/015-per-match-analysis/verification.md)。旧源/运行数据不改；提交后推送main，不推备份历史。
+- **提交定位**：`feat: per-match analysis evidence and confidence views [C20261106-007]`，Refs #5；推送结果在Issue与答复核实。
 

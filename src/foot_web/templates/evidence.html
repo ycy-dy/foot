@@ -34,6 +34,7 @@
 <section class="card"><div class="card-title"><h2>阵容情景</h2><span class="small muted">条件推演，未赋予概率</span></div>
 {% for scenario in evidence.scenarios %}<div class="evidence-source"><b>{{ scenario.name }}</b><p>条件：{{ scenario.condition }}</p><p>影响：{{ scenario.impact }}</p><p>动作：{{ scenario.action }}</p></div>
 {% else %}<p class="muted">未保存有依据的阵容情景</p>{% endfor %}</section>
+<section class="card"><h2>逐选项证据门槛（按查看时点重算）</h2><p>证据分不是命中概率；旧记录或缺关键依据不得作为当前推荐。</p>{% for o in scored_options %}{% set c = o.evidence_confidence %}<p>{{ o.category or o.code }} · {{ o.label }}：{% if c %}{{ c.evidence_confidence }}/100 · {{ c.version }} · {{ '评分门槛通过，仍需发布审核' if c.eligible else '不推荐' }}<br>{{ c.reasons|join('；') }}{% else %}无可靠评分，不推荐{% endif %}</p>{% endfor %}</section>
 <section class="card"><div class="card-title"><h2>选项研究意见</h2></div>
 {% for opinion in evidence.assessments %}<details class="evidence-opinion"><summary>{{ '否决' if opinion.decision == 'veto' else '条件保留' }} · {{ opinion.option_id }}</summary>
 <ul>{% for reason in opinion.reasons %}<li>{{ reason }}</li>{% endfor %}</ul>

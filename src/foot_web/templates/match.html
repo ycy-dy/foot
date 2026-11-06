@@ -10,6 +10,8 @@
   </div>
   <a class="btn" href="/?date={{ m.business_date }}#matches">← 返回逐场分析</a>
 </div>
+{% include 'match_analysis_summary.html' %}
+<div class="notice">下方仅为当前市场报价与去水基准，不是AI推荐。证据可信度不足70或未研究不推荐。</div>
 <div class="grid2">
 <div class="card">
   <div class="card-title"><h3>合规选项排序</h3><span class="muted small">在售、可过关{% if m.sport == 'football' %}、单项≥1.33{% endif %}</span></div>

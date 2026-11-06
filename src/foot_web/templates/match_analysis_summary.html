@@ -1,0 +1,17 @@
+<section class="card"><h2>逐场 AI 分析</h2>
+{% if not analysis %}<p>待分析：尚无与本场身份一致的研究记录。不会用赔率或模板补造AI结论。</p>{% if user.role == 'admin' %}<a class="btn" href="/?date={{ m.business_date }}">返回当日工作台发起研究</a>{% endif %}
+{% else %}<p>状态：{{ analysis.status }} · {{ analysis.item.message }} · 研究时点 {{ analysis.item.as_of or '待核' }}</p>
+{% if not analysis.current_version %}<div class="notice">旧规则／旧程序版本记录，仅供历史核对，不能作为当前推荐。</div>{% endif %}
+<p class="small">{{ analysis.price_note }} 独立模型未部署，模型概率/EV=null，证据分不是胜率。</p>
+{% if analysis.evidence %}{% set e = analysis.evidence %}
+<h3>实力判断与反证</h3><p>主假设：{{ e.hypothesis }}</p><p>最强反证：{{ e.counterargument }}</p>
+<ul>{% for p in e.failure_paths %}<li>失败路径：{{ p }}</li>{% endfor %}</ul><p>质量缺口：{{ e.quality_gaps|join('；') or '未登记额外缺口，仍须核实' }}</p>
+<h3>玩法研究与证据可信度</h3><p>以下是已保存研究意见及重新核算的证据分，不等于已发布推荐。</p>
+{% for o in analysis.options %}{% set c = o.evidence_confidence %}<details><summary>{{ o.category or o.code }} · {{ o.label }} · {% if c %}{{ c.evidence_confidence }}/100 · {{ '证据门槛通过' if c.eligible else '未过门槛，不推荐' }}{% else %}无可靠评分，不推荐{% endif %}</summary>
+<p>冻结赔率：{% for b in o.branches %}{{ b.label }} @{{ b.odds }} {% endfor %} · 市场基准 {{ o.p|pct }}（非模型概率）</p>
+<ul>{% for r in o.reasons %}<li>{{ r }}</li>{% endfor %}</ul><p>机制：{{ o.mechanism }}</p><p>风险：{{ o.risk }}；撤销：{{ o.withdraw_if }}</p>
+{% if c %}<p>评分版本 {{ c.version }} · {{ c.reasons|join('；') }}</p>{% endif %}
+{% for source in o.sources %}<p><a href="{{ source.url }}" target="_blank" rel="noopener noreferrer">{{ source.title }}</a> · {{ source.published_at or '发布时间待核' }}</p>{% endfor %}</details>{% else %}<p>无已核玩法研究或可用市场，不推荐。</p>{% endfor %}
+{% endif %}
+{% if user.role == 'admin' %}<p><a class="btn" href="/analysis/{{ analysis.task_id }}/matches/{{ analysis.match_key }}">完整23维与来源</a> <a class="btn" href="/analysis/{{ analysis.task_id }}">研究任务与日志</a></p>{% endif %}
+{% endif %}</section>

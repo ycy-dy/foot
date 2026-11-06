@@ -174,7 +174,11 @@ def match(sport, num):
         abort(404)
     m = hit[0]
     m['options'] = engine.football_options(m) if sport == 'football' else engine.basketball_options(m)
-    return render_template('match.html', m=m, meta=fb_meta if sport == 'football' else bk_meta, hafu_lbl=markets.HAFU_LBL)
+    from ..services.match_analysis import latest_match_analysis
+    analysis = latest_match_analysis(current_app.extensions['analysis_tasks'], m,
+                                     current_app.config['FOOT'], datetime.now(TZ))
+    return render_template('match.html', m=m, meta=fb_meta if sport == 'football' else bk_meta,
+                           hafu_lbl=markets.HAFU_LBL, analysis=analysis)
 
 
 @bp.get('/ledger')

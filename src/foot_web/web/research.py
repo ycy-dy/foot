@@ -90,7 +90,11 @@ def evidence(task_id, match_id):
     item = next((i for i in tasks().research.items(task_id) if i['match_key'] == match_id), None)
     if item is None:
         abort(404)
-    return render_template('evidence.html', analysis_task=task, item=item, m=item['match'],
+    from ..services.recommendations import options_with_evidence
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    scored_options = options_with_evidence(item['match'], item, datetime.now(ZoneInfo('Asia/Shanghai')))
+    return render_template('evidence.html', scored_options=scored_options, analysis_task=task, item=item, m=item['match'],
                            evidence=item['payload'], dimensions=DIMENSIONS, statuses=STATUSES)
 
 
