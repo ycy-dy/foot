@@ -176,7 +176,14 @@
 - **范围**：审核生成独立市场研究baseline并冻结schema/source/manifest/provider/content哈希，发布绑定baseline.json，评估只读不重算；缺失/篡改/未来/source/provider错均gap。基准非推荐，不用其绕AI证据门槛。
 - **身份/数据**：official_id不再回退周编号/None字符串，match_key绑定完整业务日/双方/开球，去除fixture字符串生产时钟豁免，测试使用真实ISO。
 - **验证**：真实离线Publication→Evaluation无mock build_bundle集成及负例专项38 passed；全量385 passed/172.95s。active为空后部署5020 PID53047健康。旧原票/基准无回填，模型CI/OOS未完成。
-- **提交定位**：`fix: freeze evaluation benchmarks and bind official match identity [C20261107-024]`，Refs #14；提交后push核验，私有运行数据排除。
+- **同步结果**：f25f865已推送核验，部署readiness正常。
+
+## C20261107-025 · 网页工具预算幂等与坏快照恢复
+
+- **关联**：[Issue #14](https://github.com/ycy-dy/foot/issues/14)、[规格030](../specs/030-tool-budget-integrity/spec.md)。
+- **范围**：Codex按item.id/action一次性计search/fetch，重复/乱序/缺ID/冲突/越权反例阻断和进程清理；不输出工具参数/结果/私有推理。快照20MB只读恢复，坏最新回退/全部坏不造/stale和跳过计数，不更改历史文件。
+- **验证**：专项58 passed，完整431 passed/174.87s，active为空后5020重启PID60549健康。真实CLI协议未重测，不能用合成事件保证所有未来版本兼容。
+- **提交定位**：`fix: make tool budgets idempotent and recover damaged snapshots [C20261107-025]`，Refs #14；提交后push核验，不含环境/运行台账。
 
 
 

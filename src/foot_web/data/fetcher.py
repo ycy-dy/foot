@@ -40,12 +40,27 @@ class Fetcher:
         files = sorted(self.dir.glob(f'*/*_{sport}.json'))
         if not files:
             return None, None
-        f = files[-1]
-        payload = json.loads(f.read_text())
-        raw = f.read_bytes()
-        digest = hashlib.sha256(raw).hexdigest()
-        meta = {'file': str(f), 'captured_at': f.parent.name + ' ' + f.name[:6], 'source_update': (payload.get('value') or {}).get('lastUpdateTime'), 'sha256': digest, 'stale': True}
-        return payload, meta
+        skipped = 0
+        for f in reversed(files):
+            try:
+                with f.open('rb') as handle:
+                    raw = handle.read(20_000_001)
+                if len(raw) > 20_000_000:
+                    raise ValueError('snapshot exceeds read budget')
+                payload = json.loads(raw)
+                clock = f.name.split('_', 1)[0]
+                captured = datetime.strptime(f.parent.name + clock, '%Y-%m-%d%H%M%S').replace(tzinfo=TZ)
+                if not isinstance(payload, dict) or not isinstance(payload.get('value'), dict) or payload.get('success') is False:
+                    raise ValueError('invalid snapshot envelope')
+            except (OSError, ValueError, UnicodeDecodeError):
+                skipped += 1
+                continue
+            digest = hashlib.sha256(raw).hexdigest()
+            meta = {'file': str(f), 'captured_at': captured.isoformat(),
+                    'source_update': payload['value'].get('lastUpdateTime'), 'sha256': digest,
+                    'stale': True, 'skipped_invalid_snapshots': skipped}
+            return payload, meta
+        return None, None
 
     def get(self, sport, force=False):
         with self.lock:

@@ -5,6 +5,10 @@ import re
 from ..core.privacy import ANSI, ASSIGNMENT, SENSITIVE_KEY, redact, secret_values
 
 
+class CodexToolEventError(RuntimeError):
+    """An unaccountable or disallowed Codex tool event must stop research."""
+
+
 class CLIEvents:
     def __init__(self, provider, emit):
         self.provider = provider
@@ -16,6 +20,9 @@ class CLIEvents:
         self.completed = False
         self.tool_ids = set()
         self.public_evidence = []
+        # Codex emits snapshots of the same operation, not new calls. Keep
+        # terminal records too, so late/duplicate snapshots cannot spend twice.
+        self.codex_tools = {}
 
     def feed(self, channel, text):
         self.pending[channel] += text
@@ -37,6 +44,8 @@ class CLIEvents:
                 self.line(channel, text)
         self.pending = {'stdout': '', 'stderr': ''}
         self.flush_text()
+        if any(not record['tool'] for record in self.codex_tools.values()):
+            raise CodexToolEventError('Codex 网页工具缺少 action 类型，拒绝无法核算的研究')
 
     def line(self, channel, line):
         if channel == 'stderr':
@@ -158,6 +167,42 @@ class CLIEvents:
         elif kind == 'error':
             self.emit('error', str(event.get('message') or 'Harness执行失败'))
 
+    def codex_web_tool(self, kind, item):
+        """Charge one operation per nonempty id; completion never charges again.
+
+        A start may omit action until a later snapshot. Missing ids, unknown
+        actions and contradictory classifications fail closed (no raw payload
+        is exposed). A completed-first item is charged before its result event.
+        """
+        item_id = item.get('id')
+        if not isinstance(item_id, str) or not item_id.strip():
+            raise CodexToolEventError('Codex 网页工具缺少有效 item.id，拒绝无法核算的研究')
+        record = self.codex_tools.setdefault(item_id, {'tool': None, 'done': False})
+        action = item.get('action')
+        if action is None:
+            action = {}
+        if not isinstance(action, dict):
+            raise CodexToolEventError('Codex 网页工具 action 无效，拒绝继续')
+        action_type = action.get('type')
+        tools = {'search': 'WebSearch', 'query': 'WebSearch',
+                 'open_page': 'WebFetch', 'open': 'WebFetch', 'find': 'WebFetch'}
+        tool = tools.get(action_type) if isinstance(action_type, str) else None
+        if action_type is not None and tool is None:
+            raise CodexToolEventError('Codex 网页工具 action 不在只读研究白名单，拒绝继续')
+        if tool and record['tool'] and tool != record['tool']:
+            raise CodexToolEventError('Codex 同一 item.id 的工具类型冲突，拒绝继续')
+        if tool and not record['tool']:
+            record['tool'] = tool
+            # Do not log arbitrary arguments, result bodies or private reasoning.
+            self.emit('tool', tool + ' · 开始只读网页研究')
+        if kind == 'item.completed':
+            if not record['tool']:
+                raise CodexToolEventError('Codex 网页工具完成时仍缺少 action 类型，拒绝无法核算的研究')
+            if not record['done']:
+                record['done'] = True
+                # Deliberately omit canonical names: providers count only calls.
+                self.emit('tool', '网页研究工具已返回结果')
+
     def codex(self, event):
         kind = event.get('type')
         if kind == 'thread.started':
@@ -170,10 +215,10 @@ class CLIEvents:
             if item_type == 'agent_message' and kind == 'item.completed':
                 self.public_text(item.get('text'))
             elif item_type == 'web_search':
-                action = item.get('action') or {}
-                detail = action.get('query') or action.get('url') or item.get('query') or ''
-                state = '完成' if kind == 'item.completed' else '开始'
-                self.emit('tool', '网页检索' + state + (' · ' + str(detail) if detail else ''))
+                self.codex_web_tool(kind, item)
+            elif item_type in ('command_execution', 'file_change', 'mcp_tool_call',
+                               'dynamic_tool_call', 'tool_call'):
+                raise CodexToolEventError('Codex 暴露了研究白名单以外工具，拒绝继续')
             elif item_type == 'error':
                 self.emit('error', str(item.get('message') or 'Codex 返回错误'))
             # Reasoning items and arbitrary tool arguments are intentionally omitted.

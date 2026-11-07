@@ -11,7 +11,7 @@ import tomllib
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
-from .logs import CLIEvents, redact, secret_values
+from .logs import CLIEvents, CodexToolEventError, redact, secret_values
 
 SCHEMA = {'type': 'object', 'properties': {'report_markdown': {'type': 'string'}},
           'required': ['report_markdown'], 'additionalProperties': False}
@@ -180,6 +180,8 @@ def generate(provider, prompt, workspace, config, on_event=None, schema=None, ca
             category = ('search' if ('WebSearch' in message or 'web_search' in message or '网页检索开始' in message)
                         else 'fetch' if ('WebFetch' in message or 'web_fetch' in message) else None)
             if category:
+                if config.get('_tools_disabled'):
+                    raise ProviderError('tool_protocol', '无工具整理阶段出现网页工具，拒绝继续')
                 tool_counts[category] += 1
                 if category in tool_budget and tool_counts[category] > tool_budget[category]:
                     raise ProviderError('tool_budget', '达到本场网页检索预算，停止补查并转入无工具整理',
@@ -269,6 +271,9 @@ def generate(provider, prompt, workspace, config, on_event=None, schema=None, ca
             stream.finish()
             emit('error', f'达到 {timeout} 秒时限，已停止 CLI 进程组')
             raise ProviderError('timeout', '本次 CLI 分析超时', redact('\n'.join(public_parts + stream.public_evidence), secrets, limit=None)) from None
+        except CodexToolEventError as exc:
+            _stop_process_group(process)
+            raise ProviderError('tool_protocol', str(exc)) from None
         except BaseException:
             _stop_process_group(process)
             raise

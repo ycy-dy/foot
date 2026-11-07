@@ -156,7 +156,7 @@ def test_private_blocks_and_prompt_are_not_logged_but_public_events_are(tmp_path
             {'type': 'thread.started', 'thread_id': 'fixture'},
             {'type': 'item.completed', 'item': {'type': 'reasoning', 'text': 'PRIVATE_REASONING'}},
             {'type': 'item.completed', 'item': {'type': 'agent_message', 'text': '正在核对公开伤停来源'}},
-            {'type': 'item.completed', 'item': {'type': 'web_search', 'action': {'query': 'injury update'}}},
+            {'type': 'item.completed', 'item': {'id': 'web-fixture-1', 'type': 'web_search', 'action': {'type': 'search', 'query': 'injury update'}}},
             {'type': 'user', 'text': 'PRIVATE_PROMPT'},
             {'type': 'error', 'message': 'Error: api_key=test-secret-value'},
         ]
@@ -166,7 +166,7 @@ def test_private_blocks_and_prompt_are_not_logged_but_public_events_are(tmp_path
     stream.finish()
     text = json.dumps(seen, ensure_ascii=False)
     assert 'PRIVATE_' not in text and 'test-secret-value' not in text and 'another-secret-value' not in text
-    assert '公开伤停' in text and 'injury update' in text and '[REDACTED]' in text
+    assert '公开伤停' in text and ('WebSearch' in text if provider == 'codex' else 'injury update' in text) and '[REDACTED]' in text
 
 
 def test_task_logs_are_incremental_persistent_and_admin_only(client, app, identity):
