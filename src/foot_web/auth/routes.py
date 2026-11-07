@@ -10,7 +10,7 @@ from ..core.config import id_set
 from .dingtalk import authorize_url, callback_for_origin, redirect_uris
 
 bp = Blueprint('auth', __name__)
-PUBLIC = {'auth.login', 'auth.begin', 'auth.callback', 'auth.denied', 'pages.healthz', 'static'}
+PUBLIC = {'auth.login', 'auth.begin', 'auth.callback', 'auth.denied', 'pages.healthz', 'pages.readiness', 'static'}
 
 
 def configured(config):

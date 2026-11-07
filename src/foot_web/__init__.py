@@ -91,19 +91,25 @@ def create_app(config=None, fetcher=None, identity=None, analysis_launcher=None)
             if not available:
                 return {'success': False, 'message': '当前政策或证据评分契约不可用，拒绝策略操作'}, 409
 
+    def csp_nonce():
+        import secrets
+        if not g.get('csp_nonce'):
+            g.csp_nonce = secrets.token_urlsafe(24)
+        return g.csp_nonce
+
     @app.after_request
     def security_headers(resp):
         resp.headers.setdefault('X-Content-Type-Options', 'nosniff')
         resp.headers.setdefault('X-Frame-Options', 'DENY')
         resp.headers.setdefault('Referrer-Policy', 'same-origin')
         resp.headers.setdefault('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
-        resp.headers.setdefault('Content-Security-Policy', "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'")
+        resp.headers.setdefault('Content-Security-Policy', "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-" + csp_nonce() + "'; connect-src 'self'; frame-ancestors 'none'")
         if request.is_secure:
             resp.headers.setdefault('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
         return resp
 
     @app.context_processor
     def inject():
-        return {'user': g.get('user'), 'csrf': session.get('csrf', '')}
+        return {'user': g.get('user'), 'csrf': session.get('csrf', ''), 'csp_nonce': csp_nonce()}
 
     return app

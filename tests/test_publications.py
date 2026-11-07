@@ -60,6 +60,11 @@ def test_audit_runs_real_script_publish_is_immutable_and_idempotent(researched):
     assert (draft_folder / 'report.draft.md').read_bytes() == before
     folder = Path(publication['folder'])
     assert all((folder / name).is_file() for name in ['report.md', 'recommendations.json', 'tickets.json', 'audit.json', 'publication.json', 'ai-decision.json', 'decision-context.json'])
+    from foot_web.services.research import fingerprint
+    frozen_audit = json.loads((folder / 'audit.json').read_text())
+    assert 'football' in frozen_audit['source'] and 'basketball' in frozen_audit['source']
+    assert 'bundle' not in frozen_audit['source']  # source is official data, not the check envelope
+    assert fingerprint(frozen_audit['source']) == frozen_audit['source_sha256']
     from foot_web.services.selection import load_decision
     decision, _ = load_decision(folder)
     tickets_meta = json.loads((folder / 'tickets.json').read_text())

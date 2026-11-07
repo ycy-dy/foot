@@ -43,6 +43,30 @@ def healthz():
     return {'ok': True}
 
 
+@bp.get('/readiness')
+def readiness():
+    """Bounded dependency check, without exposing paths, credentials or data."""
+    checks = {'db': False, 'policy': False}
+    try:
+        import sqlite3
+        # A probe must not create an empty database when the configured file is missing.
+        db_path = current_app.extensions['store'].path.resolve()
+        with sqlite3.connect(db_path.as_uri() + '?mode=ro', uri=True, timeout=0.25) as db:
+            required = {'events', 'analysis_runs'}
+            found = {row[0] for row in db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('events','analysis_runs')")}
+            checks['db'] = found == required
+    except (OSError, ValueError, sqlite3.Error):
+        pass
+    try:
+        from ..services.versions import rules_manifest
+        checks['policy'] = rules_manifest(current_app.config['FOOT']['PROJECT_DIR'])[0]['compatibility'] == 'supported_subset'
+    except Exception:
+        pass
+    status = 200 if all(checks.values()) else 503
+    return {'ready': all(checks.values()), 'checks': checks}, status
+
+
 @bp.get('/')
 def index():
     from ..services.research import exclusion_reason

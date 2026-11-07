@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}竞彩分析推荐{% endblock %}</title>
-<script>
+<script nonce="{{ csp_nonce }}">
 try { const theme = localStorage.getItem('foot-theme'); if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme; } catch (_) {}
 </script>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=6">
@@ -52,7 +52,7 @@ try { const theme = localStorage.getItem('foot-theme'); if (theme === 'light' ||
 <footer>{{ icon('shield-check') }}<span>仅研究与展示，不接入投注、不下单，不保证命中或收益。<br>p＝市场基准命中概率（官方赔率比例去水），不是模型预测。</span></footer>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
-<script>
+<script nonce="{{ csp_nonce }}">
 window.FOOT = {csrf: {{ csrf|tojson }}};
 </script>
 <script src="{{ url_for('static', filename='app.js') }}?v=5" defer></script>

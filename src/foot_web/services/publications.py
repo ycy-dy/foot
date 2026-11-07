@@ -207,7 +207,8 @@ class PublicationService:
         checked = {'id': 'check-' + uuid.uuid4().hex, 'task_id': task_id, 'actor': actor,
                    'created_at': now.isoformat(), 'passed': not errors, 'errors': errors, 'notes': notes,
                    'script': script, 'bundle': bundle, 'source': copy.deepcopy(workflow.get('source', {})), 'selection_sha256': fingerprint(bundle),
-                   'manifest': current, 'official_sha256': fingerprint(refreshed)}
+                   'manifest': current, 'official_source': copy.deepcopy(refreshed),
+                   'official_sha256': fingerprint(refreshed)}
         if persist:
             self.store.save_check(checked)
             from .daily_ledger import draft_ledger
@@ -250,7 +251,9 @@ class PublicationService:
             artifacts = {'daily-ledger.json': json_text(daily),
                          'report.md': render_report(bundle, self.research.items(task_id), published=True),
                          'recommendations.json': json_text(bundle), 'tickets.json': json_text(tickets),
-                         'audit.json': json_text(fresh | {'source': fresh, 'source_sha256': fingerprint(fresh)}), 'publication.json': json_text(publication),
+                         'audit.json': json_text(fresh | {'source': fresh['official_source'],
+                                                         'source_sha256': fresh['official_sha256']}),
+                         'publication.json': json_text(publication),
                          'ai-decision.json': json_text(envelope), 'decision-context.json': json_text(context)}
             for artifact in (decision_source / envelope['artifact_dir']).iterdir():
                 if artifact.is_file() and artifact.name in ('prompt.txt', 'schema.json', 'harness.response.json', 'codex.response.json',

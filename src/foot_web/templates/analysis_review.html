@@ -33,7 +33,7 @@
 {% endif %}
 </div>
 </section>
-{% if checked and checked.passed %}<script>
+{% if checked and checked.passed %}<script nonce="{{ csp_nonce }}">
 (() => {
   const form = document.querySelector('.publish-form');
   if (!form) return;
