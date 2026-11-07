@@ -6,12 +6,20 @@
   async function poll() {
     let next = true, more = false;
     try {
-      const response = await fetch(`/api/rechecks/${panel.dataset.recheckTask}?after=${cursor}`, {
+      const response = await fetch(`/api/rechecks/${encodeURIComponent(panel.dataset.recheckTask)}?after=${cursor}`, {
         cache: 'no-store', signal: AbortSignal.timeout(10000)
       });
       if (response.status === 401 || response.status === 403) {
         next = false;
         throw new Error('登录已失效，请刷新登录');
+      }
+      if (response.redirected) {
+        next = false;
+        throw new Error('登录已失效，请刷新登录');
+      }
+      if (response.status === 404) {
+        next = false;
+        throw new Error('复核任务不存在或已不可访问，请返回列表');
       }
       if (!response.ok) throw new Error('连接中断，正在重连');
       const data = await response.json();
@@ -42,6 +50,10 @@
         if (lines.children.length > 600) lines.firstElementChild.remove();
       }
       const active = ['queued','running'].includes(data.task.status);
+      if (!active) {
+        const cancel = document.querySelector('form[action$="/cancel"]');
+        if (cancel) cancel.hidden = true;
+      }
       if (!active && !more) {
         if (data.task.result_ready && panel.dataset.hasResult === 'false') location.reload();
         next = false;

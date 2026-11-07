@@ -77,9 +77,9 @@ def create_app(config=None, fetcher=None, identity=None, analysis_launcher=None)
         ) and not request.path.endswith('/cancel'):
             if not g.get('user') or g.user.get('role') != 'admin':
                 return {'success': False, 'message': '需要管理员权限'}, 403
-            # Scheduling and outbound integrations require separate opt-in.
-            if request.path.startswith('/automation') or request.path == '/research/notifications':
-                return {'success': False, 'message': '自动计划和通知尚未启用，请单独确认范围'}, 409
+            # Saving disabled management settings must remain possible even if policy files fail.
+            if request.path in ('/automation', '/research/notifications', '/research/monitoring'):
+                return None  # leaf routes enforce CSRF and reject unauthorized enabling
             from .services.versions import rules_manifest
             try:
                 manifest, _ = rules_manifest(cfg['PROJECT_DIR'])

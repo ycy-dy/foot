@@ -29,6 +29,22 @@ def review_tasks():
     return current_app.extensions['review_tasks']
 
 
+AUTOMATION_DISABLED_REASON = '自动计划、持续监控和钉钉通知默认停用；尚未获得单独启用授权。'
+
+
+@bp.app_context_processor
+def management_controls():
+    from ..services.versions import rules_manifest
+    try:
+        manifest, _ = rules_manifest(current_app.config['FOOT']['PROJECT_DIR'])
+        available = manifest.get('compatibility') == 'supported_subset'
+    except (OSError, ValueError, KeyError, TypeError):
+        available = False
+    return {'policy_available': available,
+            'policy_disabled_reason': '当前政策或证据评分契约不可用，不能发起策略任务。',
+            'automation_disabled_reason': AUTOMATION_DISABLED_REASON}
+
+
 @bp.after_request
 def private(response):
     response.headers['Cache-Control'] = 'private, no-store'
@@ -56,6 +72,9 @@ def schedules():
 @admin_required
 def save_schedule():
     csrf_check()
+    if request.form.get('enabled') == '1':
+        return render_template('automation.html', schedules=jobs().schedules(), fires=jobs().fires(),
+                               error=AUTOMATION_DISABLED_REASON, submitted=request.form), 403
     try:
         row = jobs().save_schedule(request.form, g.user['user_id'])
     except ValueError as exc:

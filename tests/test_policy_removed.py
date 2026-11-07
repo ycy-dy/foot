@@ -30,9 +30,12 @@ def test_removed_pages_and_home(client, identity, app):
 @pytest.mark.parametrize('path', ['/automation', '/research/notifications'])
 def test_automatic_writes_still_closed(client, identity, path):
     login(client, identity)
-    response = client.post(path, json={})
-    assert response.status_code == 409
-    assert '尚未启用' in response.json['message']
+    assert client.post(path, json={}).status_code == 400  # CSRF before settings mutation
+    with client.session_transaction() as session:
+        csrf = session['csrf']
+    response = client.post(path, data={'csrf': csrf, 'enabled': '1'})
+    assert response.status_code == 403
+    assert '尚未获得单独启用授权' in response.get_data(as_text=True)
 
 
 def test_policy_gate_keeps_role_protection(client, identity):

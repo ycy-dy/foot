@@ -11,4 +11,4 @@
 {% if review_html %}<article class="review-document md">{{ review_html|safe }}</article><p><a href="/ledger?from={{ task.business_date }}&to={{ task.business_date }}">查询此业务日最新台账</a> · <a href="/stats">查看命中率统计</a></p>{% else %}<p class="muted">尚无完整复盘结果。任务失败不会覆盖上一成功版本的台账，可返回列表重新发起。</p>{% endif %}
 <p class="small muted">复盘结算不是推荐发布审核；没有事前概率与证据时不补造概率或错误归因。模拟返还不是实际收益。</p>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='reviews.js') }}?v=3" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='reviews.js') }}?v=4" defer></script>{% endblock %}

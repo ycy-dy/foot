@@ -93,5 +93,13 @@
 - **关联**：[Issue #7](https://github.com/ycy-dy/foot/issues/7)、[规格017](../specs/017-recompute-button/spec.md)。
 - **根因/范围**：新版首页漏载analysis.js，按钮无span不满足render契约；修复script装配/button节点、null防护及提交失败持久反馈，增加管理员/viewer资源和API去重回归。
 - **验证**：专项3 passed、node语法检查；全量部署见[017验证](../specs/017-recompute-button/verification.md)。测试不用生产CLI，不改推荐规则/原票/凭证。
-- **提交定位**：`fix: wire recompute button and persistent feedback [C20261107-009]`，Refs #7，提交后push main，结果在Issue和答复确认。
+- **同步结果**：23fb10d已推送并核验远程，同时补推9efa552，Issue #7/#6关闭。
+
+## C20261107-010 · 全页面控制件验收与修复
+
+- **关联**：[Issue #8](https://github.com/ycy-dy/foot/issues/8)、[规格018](../specs/018-ui-controls-audit/spec.md)、[页面控制矩阵](../specs/018-ui-controls-audit/control-matrix.md)。
+- **范围**：分析状态日志健壮性/发布确认防重复，复盘临场轮询错误与终态、管理表单启用停用语义和CSRF/角色/转义、全站POST重复锁与返回解锁、资源版本一致、页面路由/权限矩阵及专项测试。
+- **安全**：自动计划/持续监控/通知和测试发送没有授权仍禁用，保存停用正常；不触发生产AI、发布、通知，不改原票或运行数据。真实浏览器仅看到生产登录页，用户切换标签中断后停控，不绕过登录；其余隔离测试/真实脚本VM，边界如实列明。
+- **验证**：见[018验证](../specs/018-ui-controls-audit/verification.md)，提交前补齐全量/部署。首轮2个旧测试仍预期全局409，迁移为CSRF400+启用403，不退化安全。
+- **提交定位**：`fix: audit and harden all page controls [C20261107-010]`，Refs #8；提交后push main并核验，禁止推旧备份。
 

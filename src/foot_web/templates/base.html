@@ -55,7 +55,7 @@ try { const theme = localStorage.getItem('foot-theme'); if (theme === 'light' ||
 <script>
 window.FOOT = {csrf: {{ csrf|tojson }}};
 </script>
-<script src="{{ url_for('static', filename='app.js') }}?v=4" defer></script>
+<script src="{{ url_for('static', filename='app.js') }}?v=5" defer></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

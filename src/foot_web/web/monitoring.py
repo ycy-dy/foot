@@ -2,7 +2,6 @@
 import re
 import os
 import secrets
-import uuid
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -13,6 +12,7 @@ from ..services.ledger import GROUPS
 from ..auth.routes import admin_required
 from ..core.privacy import redact, secret_values
 from ..services.notifications import allowed_origins
+from .automation import AUTOMATION_DISABLED_REASON, management_controls
 
 bp = Blueprint('monitoring', __name__)
 TZ = ZoneInfo('Asia/Shanghai')
@@ -66,25 +66,31 @@ def monitoring():
 @admin_required
 def monitoring_settings():
     csrf_check()
+    if request.form.get('enabled') == '1':
+        return render_template('monitoring.html', settings=rechecks().store.preferences(),
+                               tasks=rechecks().store.list(), error=AUTOMATION_DISABLED_REASON), 403
     try:
         rechecks().store.save_preferences(request.form, g.user['user_id'])
     except ValueError as exc:
         return render_template('monitoring.html', settings=rechecks().store.preferences(),
                                tasks=rechecks().store.list(), error=str(exc)), 400
     rechecks().store.store.event('monitoring_settings_saved', g.user['user_id'])
-    return redirect(url_for('monitoring.monitoring'), code=303)
+    return redirect(url_for('monitoring.monitoring', saved='1'), code=303)
 
 
 @bp.post('/publications/<publication_id>/recheck')
 @admin_required
 def request_recheck(publication_id):
     csrf_check()
+    controls = management_controls()
+    if not controls['policy_available']:
+        abort(409, description=controls['policy_disabled_reason'])
     try:
         task, _ = rechecks().start(publication_id, g.user['user_id'], lineup_enabled=request.form.get('lineup_enabled') == '1')
     except KeyError:
         abort(404)
     except ValueError as exc:
-        return str(exc), 409
+        abort(409, description=str(exc))
     return redirect(url_for('monitoring.recheck_view', task_id=task['id']), code=303)
 
 
@@ -99,7 +105,7 @@ def withdraw(publication_id):
     except KeyError:
         abort(404)
     except ValueError as exc:
-        return str(exc), 409
+        abort(409, description=str(exc))
     return redirect(url_for('research.publication_view', publication_id=publication_id), code=303)
 
 
@@ -162,20 +168,17 @@ def notification_view():
 @admin_required
 def notification_settings():
     csrf_check()
+    if request.form.get('enabled') == '1':
+        return notification_page(AUTOMATION_DISABLED_REASON, 403)
     try:
         notifications().save_preferences(request.form, g.user['user_id'])
     except ValueError as exc:
         return notification_page(str(exc), 400)
-    return redirect(url_for('monitoring.notification_view'), code=303)
+    return redirect(url_for('monitoring.notification_view', saved='1'), code=303)
 
 
 @bp.post('/research/notifications/test')
 @admin_required
 def notification_test():
     csrf_check()
-    ready, reason = notifications().readiness()
-    if not ready:
-        return notification_page(reason, 409)
-    notifications().enqueue('test:' + uuid.uuid4().hex, 'test', '竞彩研究工作台 · 通知测试',
-                            '这是一条由管理员主动请求的通知连通测试，不含赛事推荐。', '/automation')
-    return redirect(url_for('monitoring.notification_view'), code=303)
+    return notification_page(AUTOMATION_DISABLED_REASON, 403)

@@ -3,7 +3,7 @@
 {% block body %}
 <link rel="stylesheet" href="{{ url_for('static', filename='automation.css') }}?v=1">
 <div class="pagehead"><div><div class="eyebrow">AUTOMATION · ASIA/SHANGHAI</div><h1>定时分析</h1><p class="muted">每日计划 · 北京时间 · 分析与复盘分别执行</p></div><a class="btn" href="/reviews">查看复盘分析</a></div>
-<div class="notice">默认不启用任何计划。启用赛前分析后，将按时调用本机 CLI 并消耗账户额度；只生成未审核、未发布草稿。复盘仅做确定性结算，不调用模型。服务须在线；仅补最近15分钟内的一次到期任务，繁忙/过期跳过，不批量补跑。</div>
+<div class="notice">默认不启用任何计划。启用赛前分析后，将按时调用本机 CLI 并消耗账户额度；只生成未审核、未发布草稿。复盘可调用本机Claude/Codex并消耗账户额度，另做确定性结算。服务须在线；仅补最近15分钟内的一次到期任务，繁忙/过期跳过，不批量补跑。</div>
 {% if saved %}<p role="status" class="job-success">计划已保存。启用状态及下次执行时间见下方。</p>{% endif %}
 {% if error %}<p role="alert" class="err">{{ error }}（修改未保存，请检查后重新提交）</p>{% endif %}
 {% macro fields(row, new=false) %}
@@ -14,10 +14,11 @@
 <label>任务类型<select name="kind"><option value="analysis" {{ 'selected' if row.kind != 'review' }}>赛前分析（未发布草稿）</option><option value="review" {{ 'selected' if row.kind == 'review' }}>赛后复盘（结算/台账）</option></select></label>
 <label>北京时间<input type="time" name="time" required value="{{ row.time or '12:00' }}"></label>
 <label>复盘/分析业务日<select name="offset">{% for value,label in [(0,'执行当日'),(-1,'执行前1日'),(-2,'执行前2日')] %}<option value="{{ value }}" {{ 'selected' if row.offset|default(0)|int == value }}>{{ label }}</option>{% endfor %}</select></label>
-<label class="job-check"><input type="checkbox" name="enabled" value="1" {{ 'checked' if row.enabled }}>启用每日自动执行</label>
+<label class="job-check"><input type="checkbox" name="enabled" value="1" disabled aria-describedby="automation-disabled">启用每日自动执行（未授权）</label>
 <button type="submit" class="btn {{ 'primary' if new }}">{{ '添加计划' if new else '保存计划' }}</button>
 </form>
 {% endmacro %}
+<p id="automation-disabled" role="status" class="notice">{{ automation_disabled_reason }}仅可保存停用计划或停用已有计划，不能自动执行。</p>
 <h2>每日计划</h2>
 {% for row in schedules %}<section class="schedule-item"><div class="schedule-heading"><strong>{{ row.name }}</strong><span class="muted">{{ '已启用' if row.enabled else '已停用' }} · 下次：{{ row.next_due or '—' }}</span></div>{{ fields(submitted if error and submitted.get('id') == row.id|string else row) }}</section>{% else %}<p class="muted">尚无计划。添加后可随时编辑、启用或停用。</p>{% endfor %}
 <details class="job-add" {{ 'open' if error or not schedules }}><summary>添加每日计划（最多12个）</summary>{{ fields(submitted if error and not submitted.get('id') else {}, true) }}</details>

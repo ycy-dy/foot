@@ -109,7 +109,7 @@ def test_notification_settings_are_admin_only_and_unauthorized_automation_stays_
     client.post('/logout', data={'csrf': csrf})
     login(client, identity)
     assert client.get('/research/notifications').status_code == 200
-    assert client.post('/research/notifications', data={'enabled': '1'}).status_code == 409
+    assert client.post('/research/notifications', data={'enabled': '1'}).status_code == 400
 
 
 def test_collect_does_not_backfill_history_and_deduplicates_new_failures(cfg):

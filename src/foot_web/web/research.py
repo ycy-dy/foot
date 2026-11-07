@@ -65,8 +65,8 @@ def item_summary(item):
         'match_key': item['match_key'], 'sport': item['sport'], 'num': item['num'],
         'home': match['home'], 'away': match['away'], 'league': match['league'], 'kickoff': match['kickoff'],
         'status': item['status'], 'message': item['message'], 'as_of': item['as_of'],
-        'sources': len(payload['sources']) if payload else 0,
-        'verified': sum(d['status'] == 'verified' for d in payload['dimensions']) if payload else 0,
+        'sources': len((payload or {}).get('sources') or []),
+        'verified': sum(d.get('status') == 'verified' for d in ((payload or {}).get('dimensions') or []) if isinstance(d, dict)),
         'url': f'/analysis/{item["task_id"]}/matches/{item["match_key"]}',
     }
 

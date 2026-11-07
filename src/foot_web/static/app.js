@@ -114,6 +114,38 @@
   }
   window.FOOT.toast = toast;
 
+  // Native forms must validate first; lock only the submitted form and preserve
+  // submitter name/value (for action buttons) before disabling it.
+  document.querySelectorAll('form[method="post"]').forEach(form => {
+    form.addEventListener('submit', event => {
+      if (event.defaultPrevented) return;
+      if (form.dataset.submitting === 'true') { event.preventDefault(); return; }
+      form.dataset.submitting = 'true';
+      form.setAttribute('aria-busy', 'true');
+      const submitter = event.submitter;
+      if (submitter?.name) {
+        const value = document.createElement('input');
+        value.type = 'hidden'; value.name = submitter.name; value.value = submitter.value;
+        value.dataset.submitterMirror = 'true'; form.append(value);
+      }
+      form.querySelectorAll('button[type="submit"], button:not([type]), input[type="submit"]').forEach(control => {
+        if (control.disabled) return;
+        control.dataset.formLocked = 'true';
+        control.disabled = true;
+        control.setAttribute('aria-busy', 'true');
+      });
+    });
+  });
+  window.addEventListener('pageshow', () => {
+    document.querySelectorAll('form[data-submitting="true"]').forEach(form => {
+      form.dataset.submitting = 'false'; form.removeAttribute('aria-busy');
+      form.querySelectorAll('[data-submitter-mirror]').forEach(input => input.remove());
+      form.querySelectorAll('[data-form-locked="true"]').forEach(control => {
+        control.disabled = false; delete control.dataset.formLocked; control.removeAttribute('aria-busy');
+      });
+    });
+  });
+
   document.querySelectorAll('.scroll').forEach(element => {
     element.tabIndex = 0;
     element.setAttribute('role', 'region');

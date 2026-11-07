@@ -14,6 +14,14 @@
         next = false;
         throw new Error('登录已失效，请刷新登录');
       }
+      if (response.redirected) {
+        next = false;
+        throw new Error('登录已失效，请刷新登录');
+      }
+      if (response.status === 404) {
+        next = false;
+        throw new Error('复盘任务不存在或已不可访问，请返回列表');
+      }
       if (!response.ok) throw new Error('暂时无法获取状态，将自动重连');
       const data = await response.json();
       const task = data.task;

@@ -180,13 +180,13 @@ def test_automation_routes_permissions_csrf_and_forms(client, identity, app):
     assert client.post('/reviews', data={}).status_code == 403
     login(client, identity)
     assert client.get('/automation').status_code == 200
-    assert client.post('/automation', data={}).status_code == 409
+    assert client.post('/automation', data={}).status_code == 400
     with client.session_transaction() as session:
         csrf = session['csrf']
     response = client.post('/automation', data={'csrf': csrf, 'name': '测试', 'kind': 'analysis',
                                                'time': '12:00', 'offset': '0'})
-    assert response.status_code == 409
-    assert app.extensions['jobs'].schedules() == []
+    assert response.status_code == 303
+    assert all(not row['enabled'] for row in app.extensions['jobs'].schedules())
     assert client.post('/reviews', data={'csrf': csrf, 'date': 'bad'}).status_code == 400
     app.extensions['review_tasks'].launcher = lambda *_: os.getpid()
     response = client.post('/reviews', data={'csrf': csrf, 'date': '2026-11-03'})

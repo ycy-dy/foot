@@ -2,7 +2,21 @@
   'use strict';
   const initial = document.getElementById('analysis-task-data');
   if (!initial) return;
-  let task = JSON.parse(initial.textContent);
+  let task;
+  try {
+    const parsed = JSON.parse(initial.textContent || 'null');
+    task = parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (_) {
+    task = null;
+  }
+  const normalizeTask = value => {
+    if (!value || typeof value !== 'object') return null;
+    return {...value, attempts: Array.isArray(value.attempts) ? value.attempts : [],
+      progress: value.progress && typeof value.progress === 'object' ? value.progress : {}};
+  };
+  const normalizeLog = row => ({...row, id: Number(row.id), provider: row.provider || 'system',
+    kind: row.kind || 'status', message: String(row.message ?? ''), ts: row.ts || new Date().toISOString()});
+  task = normalizeTask(task);
   let timer, controller, pollGeneration = 0;
   let submitting = false, controlPending = null, stopped = false, cursor = 0, rows = [], filter = 'all', lastEvent = null, unseen = 0;
   let lastMatchUpdate = '', matchRequest = false;
@@ -252,7 +266,7 @@
       const data = await response.json();
       if (stale()) return;
       task = data.task;
-      const incoming = data.logs.filter(row => row.id > cursor);
+      const incoming = data.logs.filter(row => row && Number.isFinite(Number(row.id)) && Number(row.id) > cursor).map(normalizeLog);
       if (incoming.length) {
         rows = [...rows, ...incoming].slice(-600);
         const activity = incoming.filter(row => row.kind !== 'heartbeat');
@@ -263,7 +277,7 @@
           latest.hidden = false;
         }
       }
-      cursor = data.next_cursor;
+      cursor = Number.isFinite(Number(data.next_cursor)) ? Number(data.next_cursor) : cursor;
       more = data.has_more;
       connection.textContent = active(task) ? '实时同步' : more ? '读取记录' : '已结束';
       connection.dataset.state = active(task) ? 'live' : 'done';
@@ -317,7 +331,8 @@
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || '操作未完成');
-        task = data.task;
+        task = normalizeTask(data.task);
+       if (!task || !Array.isArray(data.logs)) throw new Error('任务状态格式无效');
         controller?.abort();
         ++pollGeneration;
         clearTimeout(timer);

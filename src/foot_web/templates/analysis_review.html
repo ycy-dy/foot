@@ -24,7 +24,7 @@
 <details class="source-note"><summary>审核脚本执行记录 · 退出码 {{ checked.script.exit_code if checked.script.exit_code is not none else '未完成' }}</summary><pre>{{ checked.script.output }}</pre></details>
 {% endif %}
 <div class="audit-actions">
-<form method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="audit">
+<form method="post" class="audit-form"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="audit">
 <button class="btn" type="submit">{{ icon('refresh-cw') }}刷新官方数据并审核</button></form>
 {% if checked and checked.passed %}
 <form method="post" class="publish-form"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="publish"><input type="hidden" name="check_id" value="{{ checked.id }}">
@@ -33,6 +33,20 @@
 {% endif %}
 </div>
 </section>
+{% if checked and checked.passed %}<script>
+(() => {
+  const form = document.querySelector('.publish-form');
+  if (!form) return;
+  let submitted = false;
+  form.addEventListener('submit', event => {
+    if (submitted) { event.preventDefault(); return; }
+    if (!window.confirm('确认发布新版本？这会更新正式展示，原草稿仍保留。')) { event.preventDefault(); return; }
+    submitted = true;
+    const button = form.querySelector('button[type="submit"]');
+    if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = '正在发布…'; }
+  });
+})();
+</script>{% endif %}
 {% if checked and checked.changes %}
 <section class="card"><div class="card-title"><h2>与草稿报价的变化</h2></div><div class="scroll"><table class="grid"><thead><tr><th>比赛</th><th>方向</th><th>草稿</th><th>本次官方报价</th></tr></thead><tbody>
 {% for row in checked.changes %}<tr><td>{{ row.num }}</td><td>{{ row.label }}</td><td>{{ row.before|join('／') }}</td><td>{{ row.after|join('／') }}</td></tr>{% endfor %}

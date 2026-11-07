@@ -2,17 +2,19 @@
 {% block title %}钉钉提醒{% endblock %}
 {% block body %}
 <div class="pagehead"><div><div class="eyebrow">运行管理 / 重要事件</div><h1>钉钉提醒</h1><div class="meta">新发布、临场变化与任务失败；未启用时不发送。</div></div></div>
+{% if request.args.get('saved') == '1' %}<p class="notice" role="status">停用设置已保存；不会发送通知。</p>{% endif %}
 {% if error %}<div class="notice err" role="alert">{{ error }}</div>{% endif %}
 <section class="card"><div class="card-title"><h2>提醒设置</h2><span class="st {{ 'good' if ready else 'neutral' }}">{{ '本地配置就绪' if ready else '未就绪/停用' }}</span></div>
 <p class="small secondary">{{ readiness }}</p>
 <form method="post" class="monitor-settings"><input type="hidden" name="csrf" value="{{ csrf }}">
-<label class="monitor-toggle"><input type="checkbox" name="enabled" value="1" {{ 'checked' if settings.enabled }}>允许发送给已配置的接收人</label>
+<p id="notifications-disabled" class="notice" role="status">{{ automation_disabled_reason }}本页不会发送测试消息；仅允许保存停用设置。</p>
+<label class="monitor-toggle"><input type="checkbox" name="enabled" value="1" disabled aria-describedby="notifications-disabled">允许发送给已配置的接收人（未授权）</label>
 <label class="date-select">报告入口<select name="origin" aria-label="钉钉报告入口"><option value="">请选择</option>{% for origin in origins %}<option value="{{ origin }}" {{ 'selected' if settings.origin == origin }}>{{ origin }}</option>{% endfor %}</select></label>
 <div class="small secondary">已配置接收人 {{ recipients|length }} 名{% for recipient in recipients %} · ID末四位 {{ recipient[-4:] }}{% endfor %}</div>
-<button class="btn primary" type="submit">{{ icon('shield-check') }}保存并确认目标</button>
+<button class="btn primary" type="submit">{{ icon('shield-check') }}保存停用设置</button>
 </form>
 <p class="small muted">只从本次设置之后收集新提醒，不补发历史事件。接收人或应用改变后需要重新确认；实际接收状态未核实，不把接口提交成功当作已送达。</p>
-{% if ready %}<form method="post" action="/research/notifications/test"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" type="submit">{{ icon('arrow-up-right') }}向以上接收人发送测试通知</button></form>{% endif %}
+<button class="btn" type="button" disabled aria-describedby="notifications-disabled">{{ icon('arrow-up-right') }}发送测试通知（未授权，已停用）</button>
 </section>
 <section class="card"><div class="card-title"><h2>发送记录</h2></div>
 <div class="scroll"><table class="grid"><thead><tr><th>时间</th><th>事件</th><th>状态</th><th>尝试</th><th>情况</th><th>钉钉发送任务号</th></tr></thead><tbody>

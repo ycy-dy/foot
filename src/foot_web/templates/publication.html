@@ -5,8 +5,9 @@
 <div class="notice">{{ '当前有效版本' if active else '此版本已被替代或撤销，保留冻结内容' }} · 已执行机器门禁并经管理员确认；不代表概率认证或收益保证。</div>
 {% if publication.status == 'withdrawn' %}<div class="notice err">撤销于 {{ publication.withdrawn_at }}：{{ publication.withdrawal_reason }}。原发布记录与赛果仍按冻结原票保留。</div>{% endif %}
 {% if active and user.role == 'admin' %}
+{% if not policy_available %}<p id="recheck-policy-disabled" role="status" class="notice">{{ policy_disabled_reason }}撤销当前展示仍可操作。</p>{% endif %}
 <section class="publication-tools">
-<form method="post" action="/publications/{{ publication.id }}/recheck"><input type="hidden" name="csrf" value="{{ csrf }}"><label class="monitor-toggle"><input type="checkbox" name="lineup_enabled" value="1">补核首发伤停（使用CLI）</label><button class="btn" type="submit">{{ icon('refresh-cw') }}临场复核</button></form>
+<form method="post" action="/publications/{{ publication.id }}/recheck"><input type="hidden" name="csrf" value="{{ csrf }}"><label class="monitor-toggle"><input type="checkbox" name="lineup_enabled" value="1">补核首发伤停（使用CLI）</label><button class="btn" type="submit" {% if not policy_available %}disabled aria-describedby="recheck-policy-disabled"{% endif %}>{{ icon('refresh-cw') }}临场复核</button></form>
 <form method="post" action="/publications/{{ publication.id }}/withdraw"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="text" name="reason" required maxlength="500" placeholder="撤销原因" aria-label="撤销原因"><button class="btn" type="submit">{{ icon('square') }}撤销当前展示</button></form>
 </section>{% endif %}
 {% if latest_recheck %}<div class="notice">最近复核：{{ latest_recheck.message }} · <a href="/rechecks/{{ latest_recheck.id }}">变化与待核资料</a></div>{% endif %}
