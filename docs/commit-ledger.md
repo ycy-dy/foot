@@ -152,6 +152,14 @@
 - **关联**：[Issue #11](https://github.com/ycy-dy/foot/issues/11)、[规格023](../specs/023-search-codex-fallback/spec.md)。
 - **范围**：用户授权Harness搜索无正式凭据时改用当前唯一Codex CLI；更新policy/runtime路由/工件版本门禁/测试迁移，保留Harness显式切换但不混合；修复codex响应工件复制和新版官方npm入口。
 - **验证**：Lead最终全量360 passed/104.52s；Codex0.167.0 native搜索实测返回官方URL但伴Code Mode host警告，禁host/shell/MCP未绕过；无active后服务PID23567健康。详见023验证。真实赛事、70分和盈利仍待新任务验收。
-- **提交定位**：`feat: use Codex CLI when Harness search unavailable [C20261107-017]`，Refs #11；目标origin/main，push结果后补。
+- **同步结果**：d77a765已推送核验；Issue #11保持开放。
+
+## C20261107-018 · 国际级审计P0快照与评估契约
+
+- **关联**：[Issue #14](https://github.com/ycy-dy/foot/issues/14)、规格024/025/026/027/028。
+- **审计**：静态审计覆盖62模块/36测试/32模板/46路由，识别证据自报、未加权维度冲突、发布评估契约断裂、快照覆盖、TLS/审计/metrics等风险。
+- **实现**：全部23维冲突fail-closed；发布audit冻结source/source_sha；evaluation缺source明确gap；Fetcher快照唯一微秒/UUID、写后字节校验及sha256/stale读取。专项8 passed，P0全量最终361 passed，提交de82cbc已推送。
+- **未完成**：claim原文hash/quote/locator/source support、stable ID/schema drift/PIT模型、Web安全/限流/metrics/readiness仍待后续spec；不宣称国际顶流/模型性能。
+
 
 

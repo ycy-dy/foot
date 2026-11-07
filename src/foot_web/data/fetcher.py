@@ -3,6 +3,7 @@ import hashlib
 import json
 import threading
 import time
+import uuid
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -27,8 +28,11 @@ class Fetcher:
         folder = self.dir / now.strftime('%Y-%m-%d')
         folder.mkdir(parents=True, exist_ok=True)
         raw = json.dumps(payload, ensure_ascii=False).encode()
-        path = folder / f"{now.strftime('%H%M%S')}_{sport}.json"
+        path = folder / f"{now.strftime('%H%M%S_%f')}_{uuid.uuid4().hex}_{sport}.json"
         path.write_bytes(raw)
+        if path.read_bytes() != raw:
+            path.unlink(missing_ok=True)
+            raise IOError('快照写后校验失败')
         return {'file': str(path), 'captured_at': now.isoformat(timespec='seconds'), 'sha256': hashlib.sha256(raw).hexdigest(),
                 'source_update': (payload.get('value') or {}).get('lastUpdateTime')}
 
@@ -38,7 +42,9 @@ class Fetcher:
             return None, None
         f = files[-1]
         payload = json.loads(f.read_text())
-        meta = {'file': str(f), 'captured_at': f.parent.name + ' ' + f.name[:6], 'source_update': (payload.get('value') or {}).get('lastUpdateTime'), 'stale': True}
+        raw = f.read_bytes()
+        digest = hashlib.sha256(raw).hexdigest()
+        meta = {'file': str(f), 'captured_at': f.parent.name + ' ' + f.name[:6], 'source_update': (payload.get('value') or {}).get('lastUpdateTime'), 'sha256': digest, 'stale': True}
         return payload, meta
 
     def get(self, sport, force=False):
