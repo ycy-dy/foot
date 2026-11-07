@@ -101,5 +101,12 @@
 - **范围**：分析状态日志健壮性/发布确认防重复，复盘临场轮询错误与终态、管理表单启用停用语义和CSRF/角色/转义、全站POST重复锁与返回解锁、资源版本一致、页面路由/权限矩阵及专项测试。
 - **安全**：自动计划/持续监控/通知和测试发送没有授权仍禁用，保存停用正常；不触发生产AI、发布、通知，不改原票或运行数据。真实浏览器仅看到生产登录页，用户切换标签中断后停控，不绕过登录；其余隔离测试/真实脚本VM，边界如实列明。
 - **验证**：见[018验证](../specs/018-ui-controls-audit/verification.md)，提交前补齐全量/部署。首轮2个旧测试仍预期全局409，迁移为CSRF400+启用403，不退化安全。
-- **提交定位**：`fix: audit and harden all page controls [C20261107-010]`，Refs #8；提交后push main并核验，禁止推旧备份。
+- **同步结果**：be8db5f已推送核验；部署代码原样再次全量297 passed/103.76s，Issue #8保留生产浏览器实际验收边界。
+
+## C20261107-011 · CLI兼容与证据结构有界修复
+
+- **关联**：[Issue #9](https://github.com/ycy-dy/foot/issues/9)、[规格019](../specs/019-runtime-provider-repair/spec.md)。用户明确按方案修复，不自动巡检/扩权/安装host。
+- **范围**：Codex完整关闭code_mode系列隔离、stderr配置不兼容快速失败清理并本轮跳过；逐场每provider一次剩余预算内证据结构修复、脱敏原返回/attempt追踪，错误聚合提示；不造来源不降低70分。
+- **验证**：受限Codex30秒无赛事最小JSON实际成功；专项20 passed，完整回归/部署见[019验证](../specs/019-runtime-provider-repair/verification.md)。原任务自然partial后才部署，不覆盖原检查点。
+- **提交定位**：`fix: bounded evidence repair and codex mode compatibility [C20261107-011]`，Refs #9。提交后push origin/main，不含环境模板/生产台账/runs/var；真实长研究是否改善仍需后续实际返回，不冒报。
 

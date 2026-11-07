@@ -49,7 +49,8 @@ def command(provider, workspace, config):
         raise ValueError('无效分析提供方')
     flags = []
     for feature in ('shell_tool', 'unified_exec', 'apps', 'multi_agent', 'computer_use',
-                    'browser_use', 'code_mode_host', 'hooks', 'plugins', 'memories'):
+                    'browser_use', 'code_mode', 'code_mode_only', 'code_mode_prewarm',
+                    'code_mode_host', 'hooks', 'plugins', 'memories'):
         flags.extend(['--disable', feature])
     # Supply a complete disabled transport, not enabled=false alone: native
     # Codex validates transport structure even for disabled desktop MCP entries.
@@ -101,6 +102,9 @@ def parse_response(provider, text, structured=False):
 
 def failure(text):
     lowered = text.lower()
+    if any(word in lowered for word in ('code-mode host is disabled', 'code mode is unavailable',
+                                        'unrecognized feature', 'unknown feature', 'unknown config field')):
+        return ProviderError('configuration', 'CLI隔离配置与当前版本不兼容，停止本轮该提供方；请核对Code Mode配置')
     if any(word in lowered for word in ('rate limit', 'rate_limit', '429', 'hit your limit', 'quota',
                                         'usage limit', 'too many requests', 'credit balance', '限额')):
         return ProviderError('rate_limit', '额度不足或触发限流')
@@ -149,14 +153,23 @@ def generate(provider, prompt, workspace, config, on_event=None, schema=None, ca
         decoders = {key: codecs.getincrementaldecoder('utf-8')(errors='replace') for key in offsets}
         started = last_heartbeat = last_output = time.monotonic()
 
+        diagnostic_tail = ''
+
         def drain():
-            nonlocal last_output
+            nonlocal last_output, diagnostic_tail
             for channel, file in (('stdout', output), ('stderr', errors)):
                 while chunk := os.pread(file.fileno(), 65536, offsets[channel]):
                     offsets[channel] += len(chunk)
                     if offsets[channel] > MAX_OUTPUT * 8:
                         raise ProviderError('invalid_output', 'CLI 事件流超过大小限制')
-                    stream.feed(channel, decoders[channel].decode(chunk))
+                    decoded = decoders[channel].decode(chunk)
+                    stream.feed(channel, decoded)
+                    # Deterministic environment incompatibility is not a slow model:
+                    # fail and clean up immediately, rather than waiting 180s per match.
+                    if channel == 'stderr':
+                        diagnostic_tail = (diagnostic_tail + decoded)[-8192:]
+                        if failure(diagnostic_tail).code == 'configuration':
+                            raise failure(diagnostic_tail)
                     last_output = time.monotonic()
 
         try:

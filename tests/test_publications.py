@@ -107,7 +107,8 @@ def test_changes_block_release_without_promoting(researched, change):
         fetcher.get = lambda *a, **kw: (original_get(*a, **kw)[0], {'captured_at': ANALYSIS_ASOF.isoformat(), 'stale': True})
     else:
         folder = Path(config['PROJECT_DIR']) / 'runs' / '2026-11-04' / task['id']
-        path = next((folder / 'matches').glob('*/*.json'))
+        path = next(p for p in (folder / 'matches').glob('*/*.json')
+                    if 'payload' in json.loads(p.read_text()))  # response/attempt artifacts are not checkpoints
         value = json.loads(path.read_text())
         value['payload']['hypothesis'] = '篡改检查点'
         path.write_text(json.dumps(value))

@@ -4,6 +4,7 @@
   <div class="analysis-status-copy"><strong id="analysis-title">AI 分析任务</strong><span id="analysis-message">{{ analysis_task.message if analysis_task else '' }}</span></div>
   <a id="analysis-result" class="text-action"{% if analysis_task %} href="{{ analysis_task.result_url }}"{% else %} hidden{% endif %}>查看任务 {{ icon('arrow-up-right') }}</a>
 </div>
+{% if analysis_task and analysis_task.diagnostics %}<details class="notice" open><summary>运行诊断汇总（已保存尝试）</summary>{% for d in analysis_task.diagnostics %}<p>{{ d.provider }} · {{ d.code }} ×{{ d.count }}：{{ d.hint }}</p>{% endfor %}<p>Web健康、CLI有心跳与证据分析成功是不同状态；不重复点击制造新任务。</p></details>{% endif %}
 <div class="analysis-monitor">
   <ol class="analysis-stages" aria-label="分析阶段">
     {% for key, label in [('snapshot', '官方快照'), ('research', '逐场证据'), ('compose', '组合审核'), ('draft', '分析草稿')] %}

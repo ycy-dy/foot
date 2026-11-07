@@ -54,6 +54,8 @@ class AnalysisTasks:
     def present(self, row):
         result = public_task(row)
         if result:
+            from ..services.runtime_diagnostics import attempt_diagnostics
+            result['diagnostics'] = attempt_diagnostics(result.get('attempts') or [])
             result['progress'] = self.research.progress(row['id'])
             with self.store.connect() as db:
                 exists = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='publications'").fetchone()
