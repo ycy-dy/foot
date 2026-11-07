@@ -82,6 +82,8 @@ def callback():
     provided = request.args.get('state', '')
     code = request.args.get('authCode') or request.args.get('code')
     ip = request.remote_addr or ''
+    # Never include one-time OAuth code/state in application-level diagnostics.
+    request.environ['foot.oauth_callback'] = True
     if (not expected or not secrets.compare_digest(expected, provided) or time.time() - started > 300 or not code
             or callback_uri != request.base_url or callback_uri not in redirect_uris(cfg)):
         return redirect(url_for('auth.login', error='授权已过期或无效，请重新登录'))

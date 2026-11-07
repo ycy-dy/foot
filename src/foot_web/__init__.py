@@ -44,8 +44,10 @@ def create_app(config=None, fetcher=None, identity=None, analysis_launcher=None)
         raise RuntimeError('缺少 FOOT_SECRET_KEY（.env）')
     app = Flask(__name__)
     app.secret_key = cfg['FOOT_SECRET_KEY']
+    secure_cookie = str(cfg.get('FOOT_SECURE_COOKIE', '')).lower() in ('1', 'true', 'yes')
     app.config.update(FOOT=cfg, SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax',
-                      SESSION_COOKIE_NAME='foot_session', PERMANENT_SESSION_LIFETIME=timedelta(days=7))
+                      SESSION_COOKIE_SECURE=secure_cookie, SESSION_COOKIE_NAME='foot_session',
+                      PERMANENT_SESSION_LIFETIME=timedelta(days=7))
     app.extensions['store'] = Store(Path(cfg['DATA_DIR']) / 'app.db')
     app.extensions['fetcher'] = fetcher or Fetcher(cfg['DATA_DIR'])
     app.extensions['dingtalk_identity'] = identity or DingTalkIdentity(cfg)
@@ -94,6 +96,10 @@ def create_app(config=None, fetcher=None, identity=None, analysis_launcher=None)
         resp.headers.setdefault('X-Content-Type-Options', 'nosniff')
         resp.headers.setdefault('X-Frame-Options', 'DENY')
         resp.headers.setdefault('Referrer-Policy', 'same-origin')
+        resp.headers.setdefault('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+        resp.headers.setdefault('Content-Security-Policy', "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'")
+        if request.is_secure:
+            resp.headers.setdefault('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
         return resp
 
     @app.context_processor

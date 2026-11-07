@@ -7,4 +7,5 @@ PORT="$(grep -E '^FOOT_PORT=' .env 2>/dev/null | cut -d= -f2)"; PORT="${PORT:-50
 mkdir -p var/logs
 exec "$ROOT/.venv/bin/gunicorn" 'foot_web.wsgi:app' \
   --bind "0.0.0.0:${PORT}" --workers 2 --threads 4 --timeout 60 \
+  --access-logformat '%({x-forwarded-for}i)s %(l)s %(u)s %(t)s "%(m)s %(U)s" %(s)s %(b)s' \
   --access-logfile var/logs/access.log --error-logfile var/logs/error.log
