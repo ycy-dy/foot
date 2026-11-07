@@ -74,6 +74,17 @@ def score_evidence(evidence: dict[str, Any] | None, *, option_id: str | None = N
         return None
     sources = {s.get("id"): s for s in evidence.get("sources", []) if isinstance(s, dict) and s.get("id")}
     valid = {sid for sid, source in sources.items() if _time_ok(source, as_of)}
+    # New claim-level provenance is required for new publishable evidence; legacy
+    # historical payloads remain readable but cannot pass this policy gate.
+    claims = evidence.get('claims') or []
+    # Legacy evidence remains readable during staged migration; new claim-aware
+    # payloads must satisfy the full provenance contract.
+    provenance_ok = (not claims) or all(
+        isinstance(c, dict) and c.get('claim_id') and c.get('source_id') in sources
+        and c.get('content_sha256') and c.get('quote') and c.get('locator')
+        and c.get('source_type') == 'non_odds' and c.get('support_status') == 'supports'
+        and c.get('verification_status') == 'manual_verified'
+        for c in claims)
     reasons: list[str] = []
     blocked: list[str] = []
     breakdown: dict[str, Any] = {}
@@ -101,6 +112,8 @@ def score_evidence(evidence: dict[str, Any] | None, *, option_id: str | None = N
     groups = {str(sources[sid].get('group_id') or sources[sid]['url']) for sid in valid & used_ids}
     if len(groups) < 2:
         blocked.append('不足两个非重复证据组，不能以转载或来源数量加分')
+    if claims and not provenance_ok:
+        blocked.append('claim级原文哈希/引用定位/人工核验支持关系无效，不能进入新推荐')
     for dim_id in sorted(CRITICAL):
         fresh_ids = {sid for sid in valid if (moment(as_of) - moment(sources[sid]['effective_at'])).total_seconds() <= 48 * 3600}
         if _dimension_points(by_id[dim_id], fresh_ids) < 1:
