@@ -78,6 +78,10 @@ def score_evidence(evidence: dict[str, Any] | None, *, option_id: str | None = N
     blocked: list[str] = []
     breakdown: dict[str, Any] = {}
     total = 0.0
+    # Every dimension conflict is a hard block, including non-weighted dimensions.
+    for row in dimensions:
+        if row.get('status') == 'conflict':
+            blocked.append(f'维度{row.get("id", "待核")}存在来源冲突')
     for dim_id, weight in WEIGHTS.items():
         row = by_id[dim_id]
         points = _dimension_points(row, valid)

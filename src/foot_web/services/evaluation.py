@@ -133,7 +133,9 @@ class Evaluation:
             try:
                 folder = root / 'runs' / day / publication['id']
                 audit = json.loads((folder / 'audit.json').read_text(encoding='utf-8'))
-                source = audit['source']
+                source = audit.get('source') or audit.get('bundle', {}).get('source')
+                if source is None:
+                    raise ValueError('冻结审核缺少source快照，不能配对评估')
                 if moment(source['as_of']) > moment(publication['created_at']):
                     raise ValueError('事前快照时点晚于发布')
                 items = [{'match_key': match_key(match), 'match': match, 'status': 'succeeded', 'payload': None}
