@@ -1,0 +1,47 @@
+# Local one-shot Harness overlay. Never change user's profile/global credentials.
+- id: sandbox-policy
+  config:
+    mode: read-only
+- id: system-prompt
+  config:
+    personaPrefix: >-
+      You are a read-only sports evidence research and structured JSON decision assistant.
+      Use only supplied data and public web tools. Do not implement software, read local
+      credentials, send messages, install software or place bets. Unknown facts stay unknown.
+- id: tools
+  config:
+    mode: native
+- id: tool-plugin-manager
+  disabled: true
+- id: tool-working-directory
+  disabled: true
+- id: tool-bash
+  disabled: true
+- id: tool-pwsh
+  disabled: true
+- id: tool-jobs
+  disabled: true
+- id: tool-fs
+  disabled: true
+- id: tool-fs-search
+  disabled: true
+- id: agent-instructions
+  disabled: true
+- id: skill-filesystem
+  disabled: true
+- id: tool-skill
+  disabled: true
+- id: tool-subagent-control
+  disabled: true
+- id: tool-subagent-list-agents
+  disabled: true
+- id: tool-subagent
+  disabled: true
+- id: tool-subagent-fork
+  disabled: true
+- id: tool-workflow
+  disabled: true
+- id: tool-todo
+  disabled: true
+- id: tool-goal
+  disabled: true

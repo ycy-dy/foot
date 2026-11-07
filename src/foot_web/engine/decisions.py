@@ -1,4 +1,4 @@
-"""Required, traceable AI decisions via the existing read-only CLI boundary."""
+"""Required, traceable AI decisions via the isolated DeepSeek Harness boundary."""
 import hashlib
 import json
 import os
@@ -17,7 +17,7 @@ def sha(text):
 
 
 def decide(config, folder, prompt, schema, validate, *, generator=None, on_event=None, cancelled=None):
-    """No synthetic success: return only validated Claude/Codex output, or raise.
+    """No synthetic success: return only validated DeepSeek Harness output, or raise.
 
     The directory belongs to a single immutable attempt group. A caller resuming
     must use a fresh group, never overwrite prior AI inputs/outputs.
@@ -46,10 +46,10 @@ def decide(config, folder, prompt, schema, validate, *, generator=None, on_event
         if on_event:
             on_event(provider, kind, redact(message, secrets))
 
-    for provider in ('claude', 'codex'):
+    for provider in ('harness',):
         if cancelled and cancelled():
             raise ProviderError('cancelled', '管理员已取消AI决策')
-        emit(provider, 'status', '正在调用AI推理决策' if provider == 'claude' else '回退Codex推理决策')
+        emit(provider, 'status', '正在调用DeepSeek Harness推理决策')
         try:
             raw = (generator or generate)(provider, safe_prompt, folder, config, schema=schema,
                                           on_event=lambda kind, text: emit(provider, kind, text),
@@ -77,4 +77,4 @@ def decide(config, folder, prompt, schema, validate, *, generator=None, on_event
                 'response_sha256': sha(raw_text), 'validated_sha256': sha(validated_text),
                 'schema_sha256': sha(json_text(schema)), 'model': None,
                 'artifact_dir': folder.name, 'result': result}
-    raise ProviderError('ai_unavailable', 'Claude与Codex均未返回有效AI决策，本次推理未完成')
+    raise ProviderError('ai_unavailable', 'DeepSeek Harness未返回有效AI决策，不回退CLI，本次推理未完成')

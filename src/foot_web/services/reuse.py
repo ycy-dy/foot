@@ -20,7 +20,8 @@ def reuse_recent(config, task, workflow, folder, store, now, log):
     if not parent or not limit:
         return []
     manifest, previous = workflow['manifest'], parent['manifest']
-    if any(manifest.get(key) != previous.get(key) for key in ('rules_sha256', 'schema_sha256', 'workflow_version')):
+    from .versions import same_version
+    if not same_version(manifest, previous) or manifest.get('schema_sha256') != previous.get('schema_sha256'):
         log('system', 'warning', '原检查点的规则/研究结构不匹配，本次重新研究')
         return []
     secrets = secret_values(config, os.environ)
@@ -39,6 +40,8 @@ def reuse_recent(config, task, workflow, folder, store, now, log):
         if item['status'] != 'pending' or not old or not old['payload'] or store.cancelled(task['id']):
             continue
         try:
+            if not old.get('attempts') or old['attempts'][-1].get('provider') != 'harness':
+                continue
             age = (moment(now)-moment(old['as_of'])).total_seconds()
             if not 0 <= age <= limit*60 or moment(item['match']['kickoff']) <= moment(now):
                 continue

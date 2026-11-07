@@ -12,7 +12,7 @@
   <div class="actions">
     <label class="date-select">{{ icon('calendar-days') }}<span class="sr-only">业务日</span><select data-date-select>{% for d in dates %}<option value="{{ d }}" {{ 'selected' if d == bd }}>{{ d }}</option>{% else %}<option value="{{ bd }}">{{ bd }}</option>{% endfor %}</select></label>
     {% if user.role == 'admin' %}
-    <button class="btn primary" id="btn-recompute" data-analysis-date="{{ bd }}" title="使用 Claude 分析，调用失败时自动回退 Codex">{{ icon('refresh-cw') }}<span>重新分析</span></button>
+    <button class="btn primary" id="btn-recompute" data-analysis-date="{{ bd }}" title="使用 DeepSeek Harness 分析；不可用时不回退旧CLI">{{ icon('refresh-cw') }}<span>重新分析</span></button>
     {% include 'analysis_stop_button.html' %}
     {% endif %}
   </div>

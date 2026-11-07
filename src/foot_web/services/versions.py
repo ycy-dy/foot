@@ -28,6 +28,7 @@ def rules_manifest(project_dir):
         ('每分支整单倍数', str(config['arithmetic']['effective_multiple_strictly_greater_than']) == str(GATE)),
         ('八结构', structures == expected),
         ('真实AI', config['decision']['ai_required'] is True),
+        ('Harness唯一提供方', config['decision']['providers'] == ['harness']),
         ('不强制条件票', config['decision']['conditional_pair_required'] is False),
         ('冻结每日台账', config['publication']['daily_frozen_ledger'] is True),
         ('不投注', config['publication']['execute_bet'] is False),
@@ -38,6 +39,7 @@ def rules_manifest(project_dir):
             for path in sorted(package.rglob('*.py'))}
     manifest = {
         'workflow_version': WORKFLOW_VERSION, 'spec_revision': config['spec_revision'],
+        'runtime_provider': 'harness',
         'rule_hashes': hashes, 'rules_sha256': fingerprint(hashes), 'code_sha256': fingerprint(code),
         'checks': [{'name': name, 'passed': bool(passed)} for name, passed in checks],
         'compatibility': 'supported_subset' if all(ok for _, ok in checks) else 'unsupported',
@@ -49,7 +51,9 @@ def rules_manifest(project_dir):
 
 
 def same_version(first, second):
-    return all(first.get(key) == second.get(key) for key in ('rules_sha256', 'code_sha256', 'workflow_version'))
+    return (first.get('runtime_provider') == second.get('runtime_provider') == 'harness'
+            and all(first.get(key) == second.get(key)
+                    for key in ('rules_sha256', 'code_sha256', 'workflow_version')))
 
 
 def research_rules(texts):

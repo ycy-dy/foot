@@ -3,7 +3,7 @@
 {% block body %}
 <link rel="stylesheet" href="{{ url_for('static', filename='automation.css') }}?v=1">
 <div class="pagehead"><div><div class="eyebrow">AUTOMATION · ASIA/SHANGHAI</div><h1>定时分析</h1><p class="muted">每日计划 · 北京时间 · 分析与复盘分别执行</p></div><a class="btn" href="/reviews">查看复盘分析</a></div>
-<div class="notice">默认不启用任何计划。启用赛前分析后，将按时调用本机 CLI 并消耗账户额度；只生成未审核、未发布草稿。复盘可调用本机Claude/Codex并消耗账户额度，另做确定性结算。服务须在线；仅补最近15分钟内的一次到期任务，繁忙/过期跳过，不批量补跑。</div>
+<div class="notice">默认不启用任何计划。启用赛前分析后，将按时调用 DeepSeek Harness；只生成未审核、未发布草稿。复盘统一调用 DeepSeek Harness，另做确定性结算。服务须在线；仅补最近15分钟内的一次到期任务，繁忙/过期跳过，不批量补跑。</div>
 {% if saved %}<p role="status" class="job-success">计划已保存。启用状态及下次执行时间见下方。</p>{% endif %}
 {% if error %}<p role="alert" class="err">{{ error }}（修改未保存，请检查后重新提交）</p>{% endif %}
 {% macro fields(row, new=false) %}

@@ -25,7 +25,7 @@
   <div class="card-title"><h3>执行记录</h3></div>
   <div class="scroll"><table class="grid">
     <thead><tr><th>提供方</th><th>状态</th><th>结果</th><th class="num">耗时</th></tr></thead>
-    <tbody id="analysis-attempt-rows">{% for attempt in analysis_task.attempts %}<tr><td>{{ attempt.provider|title }}</td><td>{{ '已完成' if attempt.status == 'succeeded' else '调用失败' }}</td><td>{{ attempt.message }}</td><td class="num">{{ attempt.seconds }}s</td></tr>{% endfor %}</tbody>
+    <tbody id="analysis-attempt-rows">{% for attempt in analysis_task.attempts %}<tr><td>{{ 'DeepSeek Harness' if attempt.provider == 'harness' else ('历史 ' ~ attempt.provider|title if attempt.provider in ['claude', 'codex'] else attempt.provider|title) }}</td><td>{{ '已完成' if attempt.status == 'succeeded' else '调用失败' }}</td><td>{{ attempt.message }}</td><td class="num">{{ attempt.seconds }}s</td></tr>{% endfor %}</tbody>
   </table></div>
 </section>
 <article data-analysis-detail data-has-report="{{ 'true' if draft_html else 'false' }}">

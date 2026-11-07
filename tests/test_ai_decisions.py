@@ -22,30 +22,46 @@ def response(rows):
             'limitations': '仅解释给定冻结资料，不修改原票与结算。'}
 
 
-def test_decision_fallback_persists_actual_return(tmp_path):
+def test_decision_failure_does_not_fallback(tmp_path):
     calls = []
     def generator(provider, prompt, folder, config, **kwargs):
         calls.append(provider)
-        if provider == 'claude':
+        if provider == 'harness':
             return {'answer': ''}
-        return {'answer': 'Codex的真实模拟返回'}
+        return {'answer': 'DeepSeek Harness的真实模拟返回'}
     def validate(value):
         if not value.get('answer'):
             raise ValueError('empty')
         return value
-    result = decide({}, tmp_path / 'decision', 'input', {}, validate, generator=generator)
-    assert calls == ['claude', 'codex'] and result['provider'] == 'codex'
-    assert result['result']['answer'] == 'Codex的真实模拟返回'
     folder = tmp_path / 'decision'
-    assert result['response_sha256'] == hashlib.sha256((folder / 'codex.response.json').read_bytes()).hexdigest()
-    assert result['schema_sha256'] == hashlib.sha256((folder / 'schema.json').read_bytes()).hexdigest()
-    assert result['validated_sha256'] == hashlib.sha256((folder / 'validated.json').read_bytes()).hexdigest()
-    assert json.loads((folder / 'attempts.json').read_text())[0]['code'] == 'invalid_output'
+    with pytest.raises(ProviderError) as error:
+        decide({}, folder, 'input', {}, validate, generator=generator)
+    assert error.value.code == 'ai_unavailable'
+    assert calls == ['harness']
+    assert json.loads((folder / 'harness.response.json').read_text()) == {'answer': ''}
+    assert not (folder / 'validated.json').exists()
+    assert json.loads((folder / 'attempts.json').read_text()) == [
+        {'provider': 'harness', 'status': 'failed', 'code': 'invalid_output'}]
     with pytest.raises(FileExistsError):
         decide({}, folder, 'other', {}, validate, generator=generator)
 
 
-@pytest.mark.parametrize('code,expected', [('timeout', ['claude', 'codex']), ('cleanup_failed', ['claude']), ('cancelled', ['claude'])])
+def test_valid_harness_decision_persists_actual_return_hashes(tmp_path):
+    calls = []
+    def generator(provider, *args, **kwargs):
+        calls.append(provider)
+        return {'answer': 'DeepSeek Harness的真实模拟返回'}
+    folder = tmp_path / 'valid-decision'
+    result = decide({}, folder, 'input', {}, lambda value: value, generator=generator)
+    assert calls == ['harness'] and result['provider'] == 'harness'
+    assert result['result']['answer'] == 'DeepSeek Harness的真实模拟返回'
+    for field, filename in [('response_sha256', 'harness.response.json'),
+                            ('schema_sha256', 'schema.json'), ('validated_sha256', 'validated.json')]:
+        assert result[field] == hashlib.sha256((folder / filename).read_bytes()).hexdigest()
+    assert result['attempts'] == [{'provider': 'harness', 'status': 'succeeded', 'code': 'ok'}]
+
+
+@pytest.mark.parametrize('code,expected', [('timeout', ['harness']), ('cleanup_failed', ['harness']), ('cancelled', ['harness'])])
 def test_decision_failure_never_synthetic_success(tmp_path, code, expected):
     calls = []
     def generator(provider, *args, **kwargs):
@@ -139,8 +155,7 @@ def test_production_review_requires_ai_return_before_overlay(review_case, monkey
     calls = []
     def generator(provider, prompt, folder, config, **kwargs):
         calls.append(provider)
-        if provider == 'claude':
-            raise ProviderError('rate_limit', 'no quota')
+        assert provider == 'harness'
         data = json.loads(prompt.split('=== FROZEN REVIEW DATA ===\n')[1])
         return response(data['rows'])
     monkeypatch.setattr(decisions, 'generate', generator)
@@ -148,18 +163,18 @@ def test_production_review_requires_ai_return_before_overlay(review_case, monkey
     jobs.begin_review('ai-review-one', '2026-11-04', 'admin1')
     run_review(cfg, 'ai-review-one')
     assert jobs.review('ai-review-one')['status'] == 'succeeded'
-    assert calls == ['claude', 'codex']
+    assert calls == ['harness']
     folder = Path(cfg['PROJECT_DIR']) / 'runs/2026-11-04/ai-review-one'
     result = json.loads((folder / 'settlement.json').read_text())
     assert result['analysis_mode'] == 'ai_review'
-    assert result['ai_analysis']['provider'] == 'codex'
+    assert result['ai_analysis']['provider'] == 'harness'
     assert result['rows'][0]['hit'] is True and result['rows'][0]['theoretical_return'] == '3.60'
     assert result['rows'][0]['actual_return'] is None
     report = (folder / 'review.md').read_text()
-    assert 'AI返回的复盘总结' in report and 'AI逐票解释' in report and 'codex' in report
+    assert 'AI返回的复盘总结' in report and 'AI逐票解释' in report and 'harness' in report
     manifest = json.loads((folder / 'manifest.json').read_text())
     assert manifest['ai_analysis']['response_sha256']
-    # Later both-provider failure must not replace the last success.
+    # Later Harness failure must not replace the last real AI success.
     monkeypatch.setattr(decisions, 'generate', lambda *a, **kw: (_ for _ in ()).throw(ProviderError('timeout', 'timeout')))
     jobs.begin_review('ai-review-failed', '2026-11-04', 'admin1')
     run_review(cfg, 'ai-review-failed')
@@ -206,7 +221,7 @@ def test_historical_review_ui_not_relabelled_ai(client, identity, app, tmp_path)
     assert '历史/纯结算版本' in html and '未保存AI分析，不追溯标记' in html
     (folder / 'manifest.json').write_text(json.dumps({'analysis_mode': 'ai_review'}))
     html = client.get('/reviews/legacy-review').get_data(as_text=True)
-    assert 'Claude / Codex AI分析' in html and '历史/纯结算版本' not in html
+    assert 'DeepSeek Harness AI分析' in html and '历史/纯结算版本' not in html
 
 
 def test_settlement_only_cannot_masquerade_as_ai(review_case):

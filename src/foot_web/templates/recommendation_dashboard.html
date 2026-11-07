@@ -5,7 +5,7 @@
 <select data-date-select aria-label="业务日">{% for d in dates %}<option value="{{ d }}" {{ 'selected' if d == bd }}>{{ d }}</option>{% endfor %}</select>
 {% if user.role == 'admin' %}<button type="button" class="btn primary" id="btn-recompute" data-analysis-date="{{ bd }}">{{ icon('refresh-cw') }}<span>重新分析</span></button>{% include 'analysis_stop_button.html' %}{% endif %}
 <a class="btn" href="/daily-ledger?date={{ bd }}">每日推荐台账</a></div></div>
-<div class="notice"><b>证据可信度≥70%才可推荐。</b>这是有版本的证据政策评分，不是命中概率；低于门槛、未知或关键证据冲突均不凑单。整单市场概率为独立近似，模型未部署、EV未知。不保证命中或收益。</div>
+<div class="notice"><b>证据可信度≥70%才可推荐。</b>这是有版本的证据政策评分，不是命中概率；低于门槛、未知或关键证据冲突均不凑单。研究与推荐统一由 DeepSeek Harness 完成；历史 Claude/Codex 记录仅作展示，不构成新成功。整单市场概率为独立近似，模型未部署、EV未知。不保证命中或收益。</div>
 {% if error %}<div class="notice">{{ error }}</div>{% endif %}
 {% if user.role == 'admin' %}{% include 'analysis_status.html' %}{% endif %}
 <section class="card"><h2>最终推荐汇总</h2>

@@ -1,4 +1,4 @@
-"""复盘独立进程：核验结算 + 必须成功的Claude/Codex分析，不自动发布。"""
+"""复盘独立进程：核验结算 + 必须成功的DeepSeek Harness分析，不自动发布。"""
 import errno
 import os
 import subprocess
@@ -97,7 +97,7 @@ def run_review(config, task_id, service=None):
         # 只公开我们定义的缺原票错误，外部响应/路径/凭证不写任务消息。
         from .providers import ProviderError
         message = ('没有可复盘的冻结原票' if isinstance(exc, ValueError) and '冻结原票' in str(exc) else
-                   'AI复盘未完成：Claude/Codex未返回有效结果，上一成功台账不变' if isinstance(exc, ProviderError) else
+                   'AI复盘未完成：DeepSeek Harness未返回有效结果，上一成功台账不变' if isinstance(exc, ProviderError) else
                    '复盘失败：原票、官方赛果或规则资料不可用，请稍后重试')
         jobs.update_review(task_id, status='failed', message=message, finished_at=datetime.now(TZ).isoformat())
         jobs.store.event('review_failed', task['requested_by'], detail={'task_id': task_id, 'error_type': type(exc).__name__})

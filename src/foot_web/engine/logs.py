@@ -52,7 +52,9 @@ class CLIEvents:
             return
         if not isinstance(event, dict):
             return
-        if self.provider == 'claude':
+        if self.provider == 'harness':
+            self.harness(event)
+        elif self.provider == 'claude':
             self.claude(event)
         else:
             self.codex(event)
@@ -129,6 +131,32 @@ class CLIEvents:
                 self.emit('status', 'Claude 已返回最终结果')
         elif kind == 'error':
             self.emit('error', str(event.get('message') or 'Claude 返回错误'))
+
+    def harness(self, event):
+        kind = event.get('type')
+        if kind == 'thinking':
+            return  # Never persist private reasoning.
+        if kind == 'session':
+            self.emit('status', 'DeepSeek Harness 会话已启动')
+        elif kind == 'text':
+            self.public_text(event.get('text', ''))
+        elif kind == 'tool_call':
+            tool = event.get('tool', '')
+            if tool not in ('web_search', 'web_fetch', 'functions.web_search', 'functions.web_fetch'):
+                raise RuntimeError('Harness暴露了研究白名单以外工具，拒绝继续')
+            self.emit('tool', tool + ' · 开始只读网页研究')
+        elif kind == 'tool_result':
+            if not event.get('truncated'):
+                text = str(event.get('result', ''))
+                if sum(map(len, self.public_evidence)) + len(text) <= 500000:
+                    self.public_evidence.append(text)
+            self.emit('tool', 'Harness网页工具已返回结果')
+        elif kind == 'final':
+            self.result = json.dumps(event, ensure_ascii=False)
+            self.completed = True
+            self.emit('status', 'DeepSeek Harness 已返回最终结果，等待结构验证')
+        elif kind == 'error':
+            self.emit('error', str(event.get('message') or 'Harness执行失败'))
 
     def codex(self, event):
         kind = event.get('type')

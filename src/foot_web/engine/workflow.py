@@ -82,7 +82,7 @@ def run_workflow(config, task_id, prepare, generator, fetcher=None, as_of=None):
                      for match in source['football'] + source['basketball']]
             research.initialize(task_id, manifest, source, items)
             log('system', 'status', f'已冻结 {len(items)} 场完整清单；逐场保存，单场时限 {timeout} 秒，本轮预算 {budget} 秒')
-            log('system', 'status', '项目CLI总任务：' + ANALYSIS_REQUEST + ' · 业务日 ' + task['business_date'])
+            log('system', 'status', 'DeepSeek Harness总任务：' + ANALYSIS_REQUEST + ' · 业务日 ' + task['business_date'])
             workflow = research.workflow(task_id)
         else:
             current, _ = rules_manifest(config['PROJECT_DIR'])
@@ -119,7 +119,7 @@ def run_workflow(config, task_id, prepare, generator, fetcher=None, as_of=None):
             prefix = f'{match["num"]} {first_team} VS {second_team}'
             research.update_item(task_id, key, status='running', as_of=decision_time.isoformat(), message='正在研究证据')
             item_attempts = item['attempts'] or []
-            for provider in ('claude', 'codex'):
+            for provider in ('harness',):
                 if provider in unavailable:
                     continue
                 if research.cancelled(task_id):
@@ -127,7 +127,7 @@ def run_workflow(config, task_id, prepare, generator, fetcher=None, as_of=None):
                 remaining = budget - (time.monotonic() - started_round)
                 if remaining < 10:
                     break
-                message = prefix + (' · Claude 研究中' if provider == 'claude' else ' · 回退 Codex，复用本场输入')
+                message = prefix + ' · DeepSeek Harness 研究中'
                 store.update_analysis(task_id, provider=provider, message=message, attempts=attempts)
                 log(provider, 'status', message)
                 started = time.monotonic()
@@ -208,8 +208,8 @@ def run_workflow(config, task_id, prepare, generator, fetcher=None, as_of=None):
             if timeout_stopped:
                 log('system', 'warning', '连续两次研究超时，停止本轮以避免重复消耗；成功检查点保留，请用户明确重试')
                 break
-            if len(unavailable) == 2:
-                log('system', 'error', '两种提供方均不可用，保留剩余比赛等待续跑')
+            if 'harness' in unavailable:
+                log('system', 'error', 'DeepSeek Harness不可用，不回退CLI；保留剩余比赛等待续跑')
                 break
         progress = research.progress(task_id)
         if progress['failed'] or progress['pending'] or progress['running']:

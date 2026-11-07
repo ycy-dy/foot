@@ -4,14 +4,12 @@ import pytest
 from foot_web.engine import providers
 
 
-def test_code_modes_all_disabled_not_host_enabled(tmp_path, monkeypatch):
+def test_harness_command_uses_isolated_headless_patch(tmp_path, monkeypatch):
     monkeypatch.setattr(providers, 'executable', lambda name, *a: '/mock/' + name)
-    monkeypatch.setenv('CODEX_HOME', str(tmp_path))
-    args = providers.command('codex', tmp_path, {})
-    for feature in ('code_mode', 'code_mode_only', 'code_mode_prewarm', 'code_mode_host', 'shell_tool', 'unified_exec'):
-        assert any(a == '--disable' and args[i+1] == feature for i, a in enumerate(args[:-1]))
-    assert args[args.index('--enable') + 1] == 'standalone_web_search' and 'read-only' in args
-    assert 'code_mode_host' not in [args[i+1] for i,x in enumerate(args[:-1]) if x == '--enable']
+    args = providers.command('harness', tmp_path, {})
+    assert args[:4] == ['/mock/rtk', 'proxy', '/mock/harness', 'headless']
+    assert '--patch' in args and args[-2:] == ['--json', '-']
+    assert 'claude' not in ' '.join(args) and 'codex' not in ' '.join(args)
 
 
 def test_configuration_error_classification():
@@ -32,7 +30,7 @@ def test_configuration_stream_fails_fast_and_cleans_group(tmp_path, monkeypatch)
             if self.calls == 1:
                 captured['stderr'].write(b'ERROR code-mode host is disabled\n')
                 captured['stderr'].flush()
-                raise subprocess.TimeoutExpired('codex', timeout)
+                raise subprocess.TimeoutExpired('harness', timeout)
             self.returncode = -15
     def launch(*args, **kwargs):
         captured.update(kwargs)
@@ -41,6 +39,6 @@ def test_configuration_stream_fails_fast_and_cleans_group(tmp_path, monkeypatch)
     monkeypatch.setattr(providers.subprocess, 'Popen', launch)
     monkeypatch.setattr(providers.os, 'killpg', lambda pid, sig: killed.append((pid, sig)))
     with pytest.raises(providers.ProviderError) as err:
-        providers.generate('codex', 'test', tmp_path, {}, schema={'type': 'object'})
+        providers.generate('harness', 'test', tmp_path, {}, schema={'type': 'object'})
     assert err.value.code == 'configuration'
     assert killed == [(12345, signal.SIGTERM)]

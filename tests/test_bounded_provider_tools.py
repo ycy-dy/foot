@@ -3,7 +3,8 @@ from foot_web.engine.logs import CLIEvents
 from foot_web.engine.providers import command
 
 
-def test_streaming_and_complete_tool_events_count_once():
+def test_historical_claude_parser_streaming_and_complete_tool_events_count_once():
+    # Read-only historical event parsing; never execute a legacy provider.
     events = []
     stream = CLIEvents('claude', lambda kind, text: events.append((kind, text)))
     block = {'type': 'tool_use', 'id': 'call-1', 'name': 'WebSearch', 'input': {'query': 'public query'}}
@@ -17,11 +18,9 @@ def test_streaming_and_complete_tool_events_count_once():
 def test_no_tools_stage_and_native_search_are_explicit(tmp_path, monkeypatch):
     from foot_web.engine import providers
     monkeypatch.setattr(providers, 'executable', lambda name, *a: '/mock/'+name)
-    monkeypatch.setenv('CODEX_HOME', str(tmp_path))
-    research = command('codex', tmp_path, {})
-    assert 'standalone_web_search' in research
-    collect = command('claude', tmp_path, {'_tools_disabled': True})
-    assert collect[collect.index('--tools')+1] == ''
-    assert '--system-prompt' in collect
-    structure = command('codex', tmp_path, {'_tools_disabled': True})
-    assert '--search' not in structure and 'web_search="disabled"' in structure
+    research = command('harness', tmp_path, {})
+    assert 'headless' in research and '--patch' in research
+    structure = command('harness', tmp_path, {'_tools_disabled': True})
+    patches = [structure[i + 1] for i, value in enumerate(structure[:-1]) if value == '--patch']
+    assert len(patches) == 2
+    assert (tmp_path / 'harness-no-web.patch.yml').read_text() == '- id: tool-web\n  disabled: true\n'

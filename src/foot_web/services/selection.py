@@ -191,10 +191,10 @@ def load_decision(folder):
         raise ValueError('AI工件路径无效')
     artifact = folder / artifact_dir
     provider = provenance['provider']
-    if provider not in ('claude', 'codex'):
-        raise ValueError('AI提供方无效')
+    if provider != 'harness':
+        raise ValueError('当前AI决策必须来自DeepSeek Harness；旧CLI工件仅作历史参考')
     if provenance.get('model') is not None:
-        raise ValueError('CLI未核实实际模型身份')
+        raise ValueError('未核实实际模型身份')
     for name, key in [('prompt.txt', 'input_sha256'), ('schema.json', 'schema_sha256'),
                       (provider + '.response.json', 'response_sha256'), ('validated.json', 'validated_sha256')]:
         if hashlib.sha256((artifact / name).read_bytes()).hexdigest() != provenance[key]:
@@ -207,7 +207,9 @@ def load_decision(folder):
         raise ValueError('AI决策schema不一致')
     if json.loads((artifact / 'attempts.json').read_text(encoding='utf-8')) != provenance['attempts']:
         raise ValueError('AI尝试记录不一致')
-    if not provenance['attempts'] or provenance['attempts'][-1] != {'provider': provider, 'status': 'succeeded', 'code': 'ok'}:
+    if (not provenance['attempts']
+            or any(row.get('provider') != 'harness' for row in provenance['attempts'])
+            or provenance['attempts'][-1] != {'provider': provider, 'status': 'succeeded', 'code': 'ok'}):
         raise ValueError('AI缺少真实成功尝试')
     if validated['context_sha256'] != fingerprint(context):
         raise ValueError('AI决策上下文哈希不一致')

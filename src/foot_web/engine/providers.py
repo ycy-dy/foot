@@ -26,6 +26,7 @@ class ProviderError(RuntimeError):
 
 
 def executable(name, configured=''):
+    name = 'dsh' if name == 'harness' else name
     candidates = [configured] if configured else [name, str(Path.home() / '.local/bin' / name),
                                                   '/opt/homebrew/bin/' + name, '/usr/local/bin/' + name]
     for candidate in candidates:
@@ -38,6 +39,14 @@ def executable(name, configured=''):
 def command(provider, workspace, config):
     binary = executable(provider, config.get('FOOT_' + provider.upper() + '_BIN', ''))
     prefix = [executable('rtk'), 'proxy', binary]
+    if provider == 'harness':
+        patch = Path(__file__).with_name('harness-research.patch.yml')
+        args = prefix + ['headless', '--patch', str(patch)]
+        if config.get('_tools_disabled'):
+            no_web = workspace / 'harness-no-web.patch.yml'
+            no_web.write_text('- id: tool-web\n  disabled: true\n', encoding='utf-8')
+            args += ['--patch', str(no_web)]
+        return args + ['--json', '-']
     if provider == 'claude':
         return prefix + ['-p', '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
                          '--json-schema', json.dumps(config.get('_response_schema') or SCHEMA),
@@ -95,6 +104,8 @@ def parse_response(provider, text, structured=False):
             if data.get('is_error') or str(data.get('subtype', '')).startswith('error'):
                 raise failure(text)
             data = data.get('structured_output') or json.loads(data.get('result', ''))
+        if provider == 'harness' and data.get('type') == 'final':
+            data = json.loads(data['text'].strip().removeprefix('```json').removeprefix('```').removesuffix('```').strip())
         if structured:
             if not isinstance(data, dict):
                 raise ValueError
@@ -142,6 +153,12 @@ def generate(provider, prompt, workspace, config, on_event=None, schema=None, ca
     (workspace / 'schema.json').write_text(json.dumps(schema or SCHEMA))
     args = command(provider, workspace, config)
     env = {key: value for key, value in os.environ.items() if not key.startswith(('DINGTALK_', 'FOOT_'))}
+    if provider == 'harness':
+        for key in ('DSH_SESSION_ID', 'DSH_WEB_URL', 'DSH_PROFILE', 'DSH_TOOLS_MODE'):
+            env.pop(key, None)
+        env['DSH_PERMISSION_MODE'] = 'read-only'
+        if schema:
+            prompt += '\n只返回一个JSON对象，不使用Markdown围栏。必须符合以下JSON Schema：\n' + json.dumps(schema, ensure_ascii=False)
     timeout = max(10, min(3600, int(config.get('FOOT_ANALYSIS_TIMEOUT') or 900)))
     secrets = secret_values(config, os.environ)
 
@@ -156,8 +173,8 @@ def generate(provider, prompt, workspace, config, on_event=None, schema=None, ca
                 raise ProviderError('invalid_output', '公开研究输出超过大小限制；未截断证据')
             public_parts.append(safe_public)
         if kind == 'tool':
-            category = ('search' if ('WebSearch' in message or '网页检索开始' in message)
-                        else 'fetch' if 'WebFetch' in message else None)
+            category = ('search' if ('WebSearch' in message or 'web_search' in message or '网页检索开始' in message)
+                        else 'fetch' if ('WebFetch' in message or 'web_fetch' in message) else None)
             if category:
                 tool_counts[category] += 1
                 if category in tool_budget and tool_counts[category] > tool_budget[category]:
@@ -267,4 +284,7 @@ def generate(provider, prompt, workspace, config, on_event=None, schema=None, ca
             raw = stream.result.encode('utf-8')
         if len(raw) > MAX_OUTPUT:
             raise ProviderError('invalid_output', 'CLI 返回内容超过大小限制')
-        return parse_response(provider, raw.decode('utf-8', errors='replace'), structured=bool(schema))
+        result = parse_response(provider, raw.decode('utf-8', errors='replace'), structured=bool(schema))
+        if schema and not Draft202012Validator(schema).is_valid(result):
+            raise ProviderError('invalid_output', 'Harness/CLI最终返回不符合结构契约')
+        return result

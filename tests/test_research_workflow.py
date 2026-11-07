@@ -213,7 +213,7 @@ def test_ai_decision_failure_preserves_research_and_resume_only_decides(project,
     run_task(project, task['id'], fetcher=FakeFetcher(), generate=generate, as_of=NOW)
     assert tasks.get(task['id'])['status'] == ('cancelled' if failure == 'cancelled' else 'partial')
     assert tasks.get(task['id'])['progress']['completed'] == 28
-    assert decisions == (['claude'] if failure in ('cleanup_failed', 'cancelled') else ['claude', 'codex'])
+    assert decisions == ['harness']
     folder = Path(project['PROJECT_DIR']) / 'runs' / '2026-11-04' / task['id']
     assert not (folder / 'recommendations.draft.json').exists()
     assert not (folder / 'ai-decision.json').exists()
@@ -230,25 +230,29 @@ def test_ai_decision_failure_preserves_research_and_resume_only_decides(project,
     assert (folder / 'ai-decision.json').exists()
 
 
-def test_ai_decision_invalid_claude_falls_back_to_real_codex_return(project):
+def test_ai_decision_invalid_harness_does_not_fallback(project):
     from conftest import research_response
     from foot_web.engine.tasks import AnalysisTasks, run_task
     tasks = AnalysisTasks(project, launcher=lambda *args: os.getpid())
     task, _ = tasks.start('2026-11-04', 'admin1')
 
     def generate(provider, prompt, *args, **kwargs):
-        if '=== RECOMMENDATION DECISION INPUT ===' in prompt and provider == 'claude':
+        if '=== RECOMMENDATION DECISION INPUT ===' in prompt and provider == 'harness':
             return {'not_a_decision': True}
         return research_response(prompt)
 
     run_task(project, task['id'], fetcher=FakeFetcher(), generate=generate, as_of=NOW)
-    assert tasks.get(task['id'])['status'] == 'succeeded'
+    assert tasks.get(task['id'])['status'] == 'partial'
     folder = Path(project['PROJECT_DIR']) / 'runs' / '2026-11-04' / task['id']
-    envelope = json.loads((folder / 'ai-decision.json').read_text())
-    assert envelope['provider'] == 'codex'
-    assert [a['status'] for a in envelope['attempts']] == ['failed', 'succeeded']
-    assert (folder / envelope['artifact_dir'] / 'claude.response.json').exists()
-    assert (folder / envelope['artifact_dir'] / 'codex.response.json').exists()
+    assert not (folder / 'ai-decision.json').exists()
+    assert not (folder / 'recommendations.draft.json').exists()
+    assert not (folder / 'report.md').exists()
+    attempts_paths = list(folder.glob('decision-*/attempts.json'))
+    assert len(attempts_paths) == 1
+    assert json.loads(attempts_paths[0].read_text()) == [
+        {'provider': 'harness', 'status': 'failed', 'code': 'invalid_output'}]
+    assert json.loads((attempts_paths[0].parent / 'harness.response.json').read_text()) == {'not_a_decision': True}
+    assert not (attempts_paths[0].parent / 'validated.json').exists()
 
 
 def test_workflow_attempt_messages_are_redacted(project):

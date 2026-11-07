@@ -47,7 +47,7 @@ def test_recompute_starts_one_background_task_across_workers(cfg, identity):
 
 
 @pytest.mark.parametrize('code', ['rate_limit', 'authentication', 'unavailable', 'timeout', 'invalid_output'])
-def test_claude_failure_falls_back_to_codex_and_keeps_result_unpublished(cfg, tmp_path, code):
+def test_harness_failure_keeps_result_unpublished_without_cli_fallback(cfg, tmp_path, code):
     from foot_web.engine.providers import ProviderError
     from foot_web.engine.tasks import AnalysisTasks, run_task
 
@@ -66,20 +66,23 @@ def test_claude_failure_falls_back_to_codex_and_keeps_result_unpublished(cfg, tm
         called.append(provider)
         assert 'test-secret' not in prompt and 'DINGTALK_CLIENT_SECRET' not in prompt
         assert '市场基准' in prompt and '2026-11-04' in prompt
-        if provider == 'claude':
-            raise ProviderError(code, 'Claude 不可用')
+        if provider == 'harness':
+            raise ProviderError(code, 'DeepSeek Harness 不可用')
         return research_response(prompt)
 
     run_task(config, task['id'], fetcher=FakeFetcher(), generate=generate, as_of=ANALYSIS_ASOF)
     completed = tasks.get(task['id'])
-    assert completed['status'] == 'succeeded' and completed['provider'] == 'codex'
-    assert called[:2] == ['claude', 'codex']
-    # Each completed match plus the mandatory final recommendation decision.
-    assert called.count('codex') == completed['progress']['completed'] + 1
+    assert completed['status'] == 'failed' and completed['provider'] == 'harness'
+    expected_calls = (2 if code == 'timeout' else 28 if code == 'invalid_output' else 1)
+    assert called == ['harness'] * expected_calls
+    assert completed['progress']['completed'] == 0
     assert completed['attempts'][0]['code'] == code
     folder = project / 'runs' / '2026-11-04' / task['id']
-    assert (folder / 'report.draft.md').is_file()
+    assert not (folder / 'report.draft.md').exists()
+    assert not (folder / 'recommendations.draft.json').exists()
     assert not (folder / 'report.md').exists()
+    from foot_web.services.reports import latest_report
+    assert latest_report(project, '2026-11-04') is None
 
 
 def test_completed_task_is_not_overwritten_by_process_exit_race(cfg, monkeypatch):
@@ -111,7 +114,7 @@ def analysis_case(cfg, tmp_path):
     return config, tasks, task
 
 
-def test_success_does_not_use_codex_and_running_same_job_twice_is_safe(analysis_case):
+def test_harness_success_and_running_same_job_twice_is_safe(analysis_case):
     from foot_web.engine.tasks import run_task
     from foot_web.services.reports import latest_report
 
@@ -124,13 +127,13 @@ def test_success_does_not_use_codex_and_running_same_job_twice_is_safe(analysis_
 
     run_task(config, task['id'], fetcher=FakeFetcher(), generate=generate, as_of=ANALYSIS_ASOF)
     run_task(config, task['id'], fetcher=FakeFetcher(), generate=generate, as_of=ANALYSIS_ASOF)
-    assert tasks.get(task['id'])['provider'] == 'claude'
+    assert tasks.get(task['id'])['provider'] == 'harness'
     assert tasks.get(task['id'])['status'] == 'succeeded'
-    assert set(called) == {'claude'} and len(called) == tasks.get(task['id'])['progress']['completed'] + 1
+    assert set(called) == {'harness'} and len(called) == tasks.get(task['id'])['progress']['completed'] + 1
     assert latest_report(config['PROJECT_DIR'], '2026-11-04') is None
 
 
-def test_both_providers_fail_without_success_or_report(analysis_case):
+def test_harness_unavailable_without_success_or_report(analysis_case):
     from foot_web.engine.providers import ProviderError
     from foot_web.engine.tasks import run_task
 
@@ -142,7 +145,7 @@ def test_both_providers_fail_without_success_or_report(analysis_case):
     run_task(config, task['id'], fetcher=FakeFetcher(), generate=generate, as_of=ANALYSIS_ASOF)
     completed = tasks.get(task['id'])
     assert completed['status'] == 'failed'
-    assert [attempt['provider'] for attempt in completed['attempts']] == ['claude', 'codex']
+    assert [attempt['provider'] for attempt in completed['attempts']] == ['harness']
     folder = Path(config['PROJECT_DIR']) / 'runs' / '2026-11-04' / task['id']
     assert not list(folder.glob('report*'))
 
@@ -160,7 +163,7 @@ def test_failed_timeout_cleanup_does_not_start_another_process(analysis_case):
 
     run_task(config, task['id'], fetcher=FakeFetcher(), generate=generate, as_of=ANALYSIS_ASOF)
     assert tasks.get(task['id'])['status'] == 'failed'
-    assert called == ['claude']
+    assert called == ['harness']
 
 
 def test_task_api_permissions_and_invalid_dates(client, identity):

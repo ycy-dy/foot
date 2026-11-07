@@ -84,7 +84,7 @@ class Store:
             return dict(row) if row else None
 
     def analysis_log(self, task_id, provider, kind, message):
-        if provider not in ('system', 'claude', 'codex') or kind not in (
+        if provider not in ('system', 'harness', 'claude', 'codex') or kind not in (
                 'status', 'start', 'tool', 'output', 'warning', 'error', 'heartbeat'):
             raise ValueError('无效日志类型')
         with self.connect() as db:

@@ -122,5 +122,13 @@
 - **关联**：[Issue #10](https://github.com/ycy-dy/foot/issues/10)、[登录说明](loopback-login.md)。
 - **处理**：用户确认127.0.0.1入口，本地.env追加精确loopback callback，保留原值；环境文件不提交，不含密钥/私有入口。无应用/机器人创建、不放开Host。
 - **验证**：auth17 passed，空闲后重启PID80955；生产begin302至官方授权，callback精确匹配和state存在，真实扫码/官方服务端白名单待用户验证。
-- **提交定位**：`docs: record exact loopback OAuth callback fix [C20261107-013]`，Refs #10；仅提交非敏感说明和台账，push后核验。
+- **同步结果**：3bf4f67已推送，用户实际正常登录，Issue #10已关闭。
+
+## C20261107-014 · DeepSeek Harness唯一AI执行
+
+- **关联**：[Issue #11](https://github.com/ycy-dy/foot/issues/11)、[规格021](../specs/021-harness-provider/spec.md)。
+- **范围**：dsh headless正式stdin/JSON adapter、项目只读web工具patch/no-tools整理、harness日志与最终工件验证、运行时单harness路由/无旧CLI回退、旧证据复用/manifest拒绝、页面与测试/配置/政策文案迁移；patch纳入package-data。
+- **验证**：真实no-tools Harness JSON返回通过，真实web_search被调用但headless缺搜索API密钥、url null，明确未开通联网；不复制当前GUI凭证不假定同模型。完整回归/部署见[021验证](../specs/021-harness-provider/verification.md)。
+- **安全**：禁用本地文件/shell/MCP相关工具/子代理/工作流/技能/插件，thinking不公开；不改原票/旧运行工件、不推备份分支。没有真实新比赛推荐或发送。
+- **提交定位**：`feat: route analysis exclusively through DeepSeek Harness [C20261107-014]`，Refs #11；目标origin/main，push由Issue及最终答复核验。
 

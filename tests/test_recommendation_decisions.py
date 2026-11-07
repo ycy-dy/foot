@@ -75,7 +75,7 @@ def test_invalid_ai_choice_contract_rejected(decision_case, change):
 def test_actual_legs_use_ai_returned_reasons_not_local_generic_templates(decision_case):
     source, items, manifest, context, result = decision_case
     validate(decision_case)
-    provenance = {'provider': 'claude', 'validated_sha256': 'verified-response'}
+    provenance = {'provider': 'harness', 'validated_sha256': 'verified-response'}
     bundle = apply_decision(result, context, source, items, manifest, ANALYSIS_ASOF, provenance)
     from foot_web.services.recommendations import all_directions
     directions = all_directions(bundle, include_structures=True)

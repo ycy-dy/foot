@@ -2,7 +2,7 @@
 from collections import Counter
 
 HINTS = {
-    'configuration': '提供方隔离配置不兼容，本轮跳过；核对CLI版本/Code Mode，不自动扩权。',
+    'configuration': '提供方隔离配置不兼容，本轮跳过；核对Harness profile/工具授权，不自动扩权或回退旧CLI。',
     'invalid_output': 'AI返回未满足证据契约；仅允许一次预算内结构修复，不降低来源门槛。',
     'timeout': '单次预算超时，已清理进程；可保留检查点，不能把存活当研究成功。',
     'authentication': 'CLI认证不可用，请本人检查授权；不索取Token。',

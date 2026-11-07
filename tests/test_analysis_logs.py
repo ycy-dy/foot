@@ -21,9 +21,8 @@ def test_native_stream_is_visible_before_cli_exit_and_keeps_failure(tmp_path, mo
     script.write_text(
         'import json, pathlib, sys, time\n'
         'sys.stdin.read()\n'
-        'print(json.dumps({"type":"thread.started","thread_id":"test"}), flush=True)\n'
-        'print(json.dumps({"type":"item.completed","item":{"type":"web_search",'
-        '"action":{"query":"team availability"}}}), flush=True)\n'
+        'print(json.dumps({"type":"session","sessionId":"test"}), flush=True)\n'
+        'print(json.dumps({"type":"tool_call","tool":"web_search"}), flush=True)\n'
         'while not pathlib.Path(sys.argv[1]).exists(): time.sleep(.02)\n'
         'print(json.dumps({"type":"error","message":"upstream timeout"}), flush=True)\n'
         'sys.exit(1)\n'
@@ -38,7 +37,7 @@ def test_native_stream_is_visible_before_cli_exit_and_keeps_failure(tmp_path, mo
 
     def run():
         try:
-            providers.generate('codex', 'fixture', tmp_path, {}, on_event=on_event)
+            providers.generate('harness', 'fixture', tmp_path, {}, on_event=on_event)
         except providers.ProviderError as exc:
             failures.append(exc.code)
 
@@ -55,18 +54,18 @@ def test_native_stream_is_visible_before_cli_exit_and_keeps_failure(tmp_path, mo
     assert any('upstream timeout' in message for _, message in events)
 
 
-def test_claude_jsonl_final_response_survives_stream_wrapping(tmp_path, monkeypatch):
+def test_harness_jsonl_final_response_survives_stream_wrapping(tmp_path, monkeypatch):
     script = tmp_path / 'cli.py'
-    final = json.dumps({'type': 'result', 'is_error': False, 'structured_output': {'report_markdown': REPORT}})
+    final = json.dumps({'type': 'final', 'text': json.dumps({'report_markdown': REPORT})})
     script.write_text(
         'import sys\nsys.stdin.read()\n'
-        'print(\'{"type":"system","subtype":"init","model":"fixture"}\', flush=True)\n'
+        'print(\'{"type":"session","sessionId":"fixture"}\', flush=True)\n'
         + 'print(' + repr(final) + ', flush=True)\n')
     monkeypatch.setattr(providers, 'command', lambda *args: [sys.executable, str(script)])
     events = []
-    result = providers.generate('claude', 'fixture input', tmp_path, {}, on_event=lambda *row: events.append(row))
+    result = providers.generate('harness', 'fixture input', tmp_path, {}, on_event=lambda *row: events.append(row))
     assert result == REPORT + '\n'
-    assert any('初始化' in text for _, text in events)
+    assert any('会话已启动' in text for _, text in events)
     assert any('最终结果' in text for _, text in events)
 
 
@@ -76,15 +75,15 @@ def test_native_timeout_keeps_prior_events_and_stops_process(tmp_path, monkeypat
     script.write_text(
         'import os, pathlib, sys, time\n'
         'sys.stdin.read()\npathlib.Path(sys.argv[1]).write_text(str(os.getpid()))\n'
-        'print(\'{"type":"thread.started"}\', flush=True)\n'
+        'print(\'{"type":"session"}\', flush=True)\n'
         'time.sleep(60)\n')
     monkeypatch.setattr(providers, 'command', lambda *args: [sys.executable, str(script), str(pid_path)])
     events = []
     with pytest.raises(providers.ProviderError) as error:
-        providers.generate('codex', 'fixture', tmp_path, {'FOOT_ANALYSIS_TIMEOUT': '10'},
+        providers.generate('harness', 'fixture', tmp_path, {'FOOT_ANALYSIS_TIMEOUT': '10'},
                            on_event=lambda *row: events.append(row))
     assert error.value.code == 'timeout'
-    assert any('会话已连接' in text for _, text in events)
+    assert any('会话已启动' in text for _, text in events)
     assert any('已停止 CLI 进程组' in text for _, text in events)
     with pytest.raises(ProcessLookupError):
         os.kill(int(pid_path.read_text()), 0)
@@ -99,18 +98,40 @@ def test_valid_terminal_result_does_not_wait_for_cli_shutdown(tmp_path, monkeypa
         'pathlib.Path(sys.argv[1]).write_text(str(os.getpid()))\n'
         'pathlib.Path(sys.argv[2]).write_text(json.dumps({"report_markdown":'
         + repr(REPORT) + '}))\n'
-        'print(\'{"type":"turn.completed","usage":{"output_tokens":10}}\', flush=True)\n'
+        'print(' + repr(json.dumps({'type': 'final', 'text': json.dumps({'report_markdown': REPORT})})) + ', flush=True)\n'
         'time.sleep(60)\n')
     monkeypatch.setattr(providers, 'command', lambda provider, folder, *a:
                         [sys.executable, str(script), str(pid_path), str(folder / 'response.json')])
     import time
     started = time.monotonic()
-    assert providers.generate('codex', 'fixture', tmp_path, {'FOOT_ANALYSIS_TIMEOUT': '10'}) == REPORT + '\n'
+    assert providers.generate('harness', 'fixture', tmp_path, {'FOOT_ANALYSIS_TIMEOUT': '10'}) == REPORT + '\n'
     assert time.monotonic() - started < 4
     with pytest.raises(ProcessLookupError):
         os.kill(int(pid_path.read_text()), 0)
 
 
+def test_harness_stream_keeps_public_evidence_and_never_private_reasoning():
+    from foot_web.engine.logs import CLIEvents, redact
+    seen = []
+    stream = CLIEvents('harness', lambda kind, text: seen.append((kind, redact(text))))
+    for event in [
+        {'type': 'session', 'sessionId': 'fixture'},
+        {'type': 'thinking', 'text': 'PRIVATE_REASONING'},
+        {'type': 'user', 'text': 'PRIVATE_PROMPT'},
+        {'type': 'text', 'text': '正在核对公开伤停来源'},
+        {'type': 'tool_call', 'tool': 'web_search'},
+        {'type': 'tool_result', 'result': '公开来源链接'},
+        {'type': 'error', 'message': 'api_key=private-secret'},
+    ]:
+        stream.feed('stdout', json.dumps(event, ensure_ascii=False) + '\n')
+    stream.finish()
+    logged = json.dumps(seen, ensure_ascii=False)
+    assert 'PRIVATE_' not in logged and 'private-secret' not in logged
+    assert '公开伤停' in logged and 'web_search' in logged and '[REDACTED]' in logged
+    assert stream.public_evidence == ['公开来源链接']
+
+
+# Historical parser compatibility only: these fixtures never execute legacy CLIs.
 @pytest.mark.parametrize('provider', ['claude', 'codex'])
 def test_private_blocks_and_prompt_are_not_logged_but_public_events_are(tmp_path, provider):
     from foot_web.engine.logs import CLIEvents, redact
@@ -152,8 +173,8 @@ def test_task_logs_are_incremental_persistent_and_admin_only(client, app, identi
     tasks = app.extensions['analysis_tasks']
     task, _ = tasks.start('2026-11-04', 'admin1')
     store = Store(tasks.store.path)
-    store.analysis_log(task['id'], 'claude', 'tool', 'WebSearch: official team news')
-    store.analysis_log(task['id'], 'codex', 'output', '<script>alert("x")</script>')
+    store.analysis_log(task['id'], 'harness', 'tool', 'WebSearch: official team news')
+    store.analysis_log(task['id'], 'harness', 'output', '<script>alert("x")</script>')
     endpoint = task['logs_url']
     assert client.get(endpoint).status_code in (302, 401)
     login(client, identity, 'viewer1', '只读乙')
@@ -190,14 +211,14 @@ def test_logs_retention_is_bounded(tmp_path):
     store = Store(tmp_path / 'app.db')
     store.begin_analysis('run', '2026-11-04', 'admin1')
     for index in range(2005):
-        store.analysis_log('run', 'codex', 'output', str(index) + 'x' * 5000)
+        store.analysis_log('run', 'harness', 'output', str(index) + 'x' * 5000)
     rows = store.analysis_logs('run', limit=2000)
     assert len(rows) == 2000
     assert rows[0]['message'].startswith('5x')
     assert max(len(row['message']) for row in rows) <= 4000
 
 
-def test_fallback_and_final_error_logs_survive_the_task(cfg, tmp_path, monkeypatch):
+def test_harness_failure_logs_survive_without_cli_fallback(cfg, tmp_path, monkeypatch):
     from foot_web.engine import tasks as module
 
     project = tmp_path / 'project'
@@ -217,8 +238,9 @@ def test_fallback_and_final_error_logs_survive_the_task(cfg, tmp_path, monkeypat
     monkeypatch.setattr(module, 'generate_report', generate)
     module.run_task(config, task['id'], fetcher=FakeFetcher(), as_of=ANALYSIS_ASOF)
     rows = tasks.store.analysis_logs(task['id'])
-    assert {row['provider'] for row in rows} >= {'claude', 'codex'}
-    assert any('回退' in row['message'] for row in rows)
+    assert 'harness' in {row['provider'] for row in rows}
+    assert not ({row['provider'] for row in rows} & {'claude', 'codex'})
+    assert not any('回退到' in row['message'] for row in rows)
     assert any(row['kind'] == 'error' and '超时' in row['message'] for row in rows)
     assert 'do-not-store-secret' not in json.dumps(rows)
     assert tasks.get(task['id'])['status'] == 'failed'

@@ -36,7 +36,7 @@
   const latest = byId('analysis-log-latest');
   const connection = byId('analysis-log-connection');
   const active = value => value && ['queued', 'running'].includes(value.status);
-  const names = {claude: 'Claude', codex: 'Codex', system: '系统'};
+  const names = {harness: 'DeepSeek Harness', system: '系统', claude: '历史 Claude', codex: '历史 Codex'};
   const kinds = {start: '启动', status: '状态', tool: '网页', output: '输出', warning: '警告', error: '错误', heartbeat: '存活'};
   const duration = ms => {
     const seconds = Math.max(0, Math.floor(ms / 1000));

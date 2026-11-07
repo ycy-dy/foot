@@ -274,6 +274,7 @@ def test_live_recheck_keeps_original_and_reuses_evidence_at_original_time(resear
     config, _, task, fetcher = researched
     publications = PublicationService(config, fetcher)
     checked = publications.check(task['id'], 'admin1', now=ANALYSIS_ASOF)
+    assert checked['passed'], checked['errors']
     publication, _ = publications.publish(task['id'], checked['id'], 'admin1', confirmed=True, now=ANALYSIS_ASOF)
     original = Path(publication['folder']) / 'recommendations.json'
     frozen = original.read_bytes()
@@ -294,14 +295,14 @@ def test_live_recheck_keeps_original_and_reuses_evidence_at_original_time(resear
                               'effective_at': as_of.isoformat(), 'group_id': 'official-lineup', 'tier': 'L1'}]
         payload['dimensions'][17].update(status='verified', source_ids=['lineup'],
                                          home='模拟官方首发甲', away='模拟官方首发乙')
-        return {'provider': 'codex', 'validated_sha256': 'fixture-return', 'result': payload}
+        return {'provider': 'harness', 'validated_sha256': 'fixture-return', 'result': payload}
 
     # Inject the clock at the service boundary while exercising the real worker state transitions.
     from foot_web.services.rechecks import RecheckService
     first, _ = store.begin('recheck-first', publication['id'], 'one', 'admin1', True)
     result = RecheckService(config, fetcher, analyst, store).run(first, now)
     assert calls and result['findings'] and any(row['kind'] == 'evidence' for row in result['changes'])
-    assert all(f['ai']['provider'] == 'codex' and not f['cached'] for f in result['findings'])
+    assert all(f['ai']['provider'] == 'harness' and not f['cached'] for f in result['findings'])
     count = len(calls)
     store.update(first['id'], status='succeeded', payload=result)
     second, _ = store.begin('recheck-second', publication['id'], 'two', 'admin1', True)
