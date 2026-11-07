@@ -138,5 +138,12 @@
 - **授权/范围**：用户选pixmoving/gpt-6.1-sol且授权项目headless通过官方credentials内部解析已保存引用；仅patch改模型/启credentials，不改全局默认/凭据，不使用聊天明文。patch纳入manifest代码hash，变更失效旧审核。
 - **验证**：真实无工具小JSON ok；全量352 passed，manifest补充后专项/部署见[022验证](../specs/022-pixmoving-model/verification.md)。搜索授权独立不冒报联网，未发赛事/聊天数据验证。
 - **安全提醒**：聊天中出现的凭据不存入代码、Issue、台账或命令，建议提供方撤销轮换；任何轮换由用户官方凭据界面处理。
-- **提交定位**：`feat: select pixmoving model with stored credentials [C20261107-015]`，Refs #12；提交后push origin/main并核验，私有环境和运行数据不入Git。
+- **同步结果**：8f81e3f已推送核验。
+
+## C20261107-016 · Codex后台版本对齐诊断记录
+
+- **关联**：[Issue #13](https://github.com/ycy-dy/foot/issues/13)、[处理说明](codex-daemon-version.md)。
+- **授权处理**：用户分别同意restart和官方update --from-cli；后台从0.142.0对齐本机0.167.0，使用本机包，无下载、不清配置/历史、不关闭信任。
+- **验证**：官方version三版本一致；PTY启动10秒保持运行无原错误，用户终端交互仍待确认；proxy无输出/超时未冒报成功。当前其他Codex替代迁移代码仍待收口，不纳入本记录提交。
+- **提交定位**：`docs: record Codex daemon alignment diagnosis [C20261107-016]`，Refs #13；仅说明和台账，无凭据，提交后push。
 
