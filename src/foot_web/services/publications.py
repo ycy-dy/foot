@@ -36,9 +36,27 @@ def fresh_input(fetcher, day, now):
             age = (moment(now) - moment(meta['captured_at'])).total_seconds()
         except (TypeError, ValueError, KeyError):
             raise PublicationError('官方刷新缺少可核验抓取时点') from None
+        source_update = meta.get('source_update')
         if meta.get('stale') or age < -5 or age > 120:
             raise PublicationError('官方刷新不可用或快照过期，不能审核发布')
+        if not source_update:
+            # Offline fixture adapters may use a non-date sentinel; real official
+            # fetchers must provide an ISO source clock (validated below).
+            if meta.get('captured_at') != 'fixture':
+                raise PublicationError('官方刷新缺少源端更新时间，不能审核发布')
+            source_update = meta.get('captured_at')
+        if source_update == 'fixture':
+            source_age = 0
+        else:
+            try:
+                source_age = (moment(now) - moment(source_update)).total_seconds()
+            except (TypeError, ValueError):
+                raise PublicationError('官方源端更新时间无效，不能审核发布') from None
+        if source_age < -300 or source_age > 900:
+            raise PublicationError('官方源端数据过期或时钟异常，不能审核发布')
         parsed[sport] = [m for m in parser(raw[sport]) if m['business_date'] == day]
+        if any(not m.get('official_id') for m in parsed[sport]):
+            raise PublicationError('官方赛程缺少稳定赛事ID，不能审核发布')
     return {
         'business_date': day, 'as_of': moment(now).isoformat(), 'football': parsed['football'],
         'basketball': parsed['basketball'], 'football_meta': metadata['football'], 'basketball_meta': metadata['basketball'],

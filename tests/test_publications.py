@@ -104,7 +104,7 @@ def test_changes_block_release_without_promoting(researched, change):
         now += timedelta(days=1)
     elif change == 'stale':
         original_get = fetcher.get
-        fetcher.get = lambda *a, **kw: (original_get(*a, **kw)[0], {'captured_at': ANALYSIS_ASOF.isoformat(), 'stale': True})
+        fetcher.get = lambda *a, **kw: (original_get(*a, **kw)[0], {'captured_at': ANALYSIS_ASOF.isoformat(), 'source_update': ANALYSIS_ASOF.isoformat(), 'stale': True})
     else:
         folder = Path(config['PROJECT_DIR']) / 'runs' / '2026-11-04' / task['id']
         path = next(p for p in (folder / 'matches').glob('*/*.json')
@@ -283,7 +283,7 @@ def test_live_recheck_keeps_original_and_reuses_evidence_at_original_time(resear
     now = kickoff - timedelta(minutes=30)
     raw_get = fetcher.get
     fetcher.get = lambda *a, **kw: (raw_get(*a, **kw)[0], {
-        'captured_at': now.isoformat(), 'stale': False})
+        'captured_at': now.isoformat(), 'source_update': now.isoformat(), 'stale': False})
     store = MonitoringStore(config['DATA_DIR'])
     calls = []
 
