@@ -93,10 +93,11 @@
       button.disabled = running || submitting;
       button.classList.toggle('is-loading', running || submitting);
       button.setAttribute('aria-busy', String(running || submitting));
-      button.querySelector('span').textContent = submitting ? '正在提交…' : stopping ? '正在终止…'
+      const label = button.querySelector('span') || button;
+      label.textContent = submitting ? '正在提交…' : stopping ? '正在终止…'
         : running ? `${names[task.provider] || '后台'}分析中` : '重新分析';
     }
-    workspace.hidden = !task;
+    workspace.hidden = !task && !submitting && !banner.classList.contains('analysis-failed');
     if (!task) return;
     banner.classList.toggle('analysis-failed', ['failed', 'interrupted', 'partial'].includes(task.status));
     banner.classList.toggle('analysis-running', !!active(task));
@@ -367,7 +368,12 @@
       }
       poll();
     } catch (error) {
-      window.FOOT.toast(error.name === 'TimeoutError' ? '提交状态未确认，请刷新查看' : error.message);
+      workspace.hidden = false;
+      title.textContent = '分析提交未完成';
+      const failure = error.name === 'TimeoutError' ? '提交状态未确认，请刷新查看任务，勿重复提交' : error.message;
+      message.textContent = failure;
+      banner.classList.add('analysis-failed');
+      window.FOOT.toast(failure);
     } finally {
       submitting = false;
       render();

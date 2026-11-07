@@ -86,5 +86,12 @@
 - **范围**：首页独立梦想栏目/冻结发布投影、四腿比分赔率与组合乘积/证据分/理由风险撤销/台账入口；强化严格审核四腿唯一CRS、低分及比分价格一致性。
 - **边界**：只显示当前政策审核发布版本，空态不凑单，不自动扩注、不投注；独立模型概率EV仍null，市场联合只是独立近似；不修改原票、生产数据和凭证。
 - **验证**：见[016验证记录](../specs/016-dream-score-ticket/verification.md)；提交后push及结果由Issue/当次答复确认。
-- **提交定位**：`feat: visible four-leg exact-score dream ticket [C20261106-008]`，Refs #6，目标origin/main。
+- **提交定位**：9efa552，Refs #6。此前push两次超时，远程当时377c4ff；后续推送本笔修复会一并补推。
+
+## C20261107-009 · 修复重新分析按钮无响应
+
+- **关联**：[Issue #7](https://github.com/ycy-dy/foot/issues/7)、[规格017](../specs/017-recompute-button/spec.md)。
+- **根因/范围**：新版首页漏载analysis.js，按钮无span不满足render契约；修复script装配/button节点、null防护及提交失败持久反馈，增加管理员/viewer资源和API去重回归。
+- **验证**：专项3 passed、node语法检查；全量部署见[017验证](../specs/017-recompute-button/verification.md)。测试不用生产CLI，不改推荐规则/原票/凭证。
+- **提交定位**：`fix: wire recompute button and persistent feedback [C20261107-009]`，Refs #7，提交后push main，结果在Issue和答复确认。
 
