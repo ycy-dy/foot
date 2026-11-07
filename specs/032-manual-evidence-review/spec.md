@@ -1,0 +1,7 @@
+# 032 管理员人工证据复核入口
+
+总审计Issue #14，承接031本地工件。/provenance仅管理员GET/POST、session CSRF、2.2MB请求限制；capture只保存管理员提供的公开非赔率原文，不自动联网；review须明确checkbox确认，引用精确匹配并由服务器当前g.user记录actor/time，不接受表单/AI自报actor。
+
+只保存独立source/quote/manual-review receipts，不写研究原payload/原票、不提高评分、不自动发布。页面明确正文未独立抓取、字面引用不等于语义真实，新发布强制准入仍未接通，不能关闭024缺claims豁免缺口。URL/ID/目录/大小/时序限制沿031，错误只显示通用脱敏说明。
+
+验收：匿名302/viewer403/admin权限、缺CSRF400/缺确认400、实际receipt操作者固定登录身份、私有URL拒绝、页面no-store、原文敏感输出不反射。真实人工复核由用户执行，不通过测试调用制造生产凭据。

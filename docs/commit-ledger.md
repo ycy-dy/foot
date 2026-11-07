@@ -191,7 +191,14 @@
 - **范围**：本地内容寻址不可覆盖source正文、quote字面匹配与绑定、受信人工action review receipt；verify重验哈希/时序/非赔率/匹配身份，AI manual_verified字符串不能代替磁盘凭据。无网络/环境/数据库访问，不接生产门禁冒报。
 - **验证**：独立反例50 passed，证据组合58 passed；完整回归及部署见031验证。URL/quote字面一致不等于网页抓取或语义真，actor鉴权和目录保护属后续集成责任。
 - **边界**：024空claims新发布豁免/管理员复核界面/安全抓取尚未解决，仍P0开放；本模块是基础设施非完整来源认证。修正文档过度描述。
-- **提交定位**：`feat: add immutable source and human-review receipts [C20261107-026]`，Refs #14；提交后push核验，私有运行资料排除。
+- **推送状态补记**：778e6e5本地已提交，前次75秒网络失败及25秒重试超时，远程当时db8ecd4；随下一提交一并重推，不冒报成功。
+
+## C20261107-027 · 管理员原文与人工复核入口
+
+- **关联**：[Issue #14](https://github.com/ycy-dy/foot/issues/14)、[规格032](../specs/032-manual-evidence-review/spec.md)。
+- **范围**：新增admin-only/provenance页面，CSRF、请求大小、capture/review动作白名单和确认；actor/time由服务器登录态提供不接受AI/表单伪造，审计只存工件ID，页面no-store/转义。
+- **验证**：人工入口+本地溯源专项52 passed；完整回归/部署见032验证。输入正文由管理员提供，不证明真实抓网/语义蕴含，尚未提高分数或接新发布准入，不改原票。
+- **提交定位**：`feat: add authenticated manual provenance review [C20261107-027]`，Refs #14；提交后push核验，同时补推031，不包含私有工件。
 
 
 

@@ -22,6 +22,7 @@ from .services.ledger import Ledger
 from .storage.db import Store
 from .web.routes import bp as pages_bp
 from .web.research import bp as research_bp
+from .web.provenance import bp as provenance_bp
 from .services.publications import PublicationService
 from .web.monitoring import bp as monitoring_bp
 from .engine.rechecks import RecheckTasks
@@ -66,6 +67,7 @@ def create_app(config=None, fetcher=None, identity=None, analysis_launcher=None)
     app.register_blueprint(auth_bp)
     app.register_blueprint(pages_bp)
     app.register_blueprint(research_bp)
+    app.register_blueprint(provenance_bp)
     app.register_blueprint(monitoring_bp)
     app.jinja_env.filters['pct'] = pct
     app.jinja_env.filters['pctw'] = lambda p: 0 if p is None else round(p * 100, 1)
