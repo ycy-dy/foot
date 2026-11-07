@@ -33,6 +33,10 @@ def executable(name, configured=''):
         found = shutil.which(candidate)
         if found:
             return found
+    if name == 'codex':
+        npm_entry = Path.home() / '.local/lib/node_modules/@openai/codex/bin/codex.js'
+        if npm_entry.is_file() and os.access(npm_entry, os.X_OK):
+            return str(npm_entry)
     raise ProviderError('unavailable', '本机 CLI 未安装或不可执行')
 
 

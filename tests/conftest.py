@@ -136,6 +136,18 @@ def copy_rules(destination):
         target.write_bytes((root / name).read_bytes())
 
 
+def set_policy_provider(project, provider):
+    """Override only an isolated test policy; never mutate the production contract."""
+    import yaml
+    from foot_web.services.versions import POLICY_BASE
+    path = Path(project) / (POLICY_BASE + '.yaml')
+    policy = yaml.safe_load(path.read_text())
+    policy['runtime_provider'] = provider
+    policy['decision']['runtime_provider'] = provider
+    policy['decision']['providers'] = [provider]
+    path.write_text(yaml.safe_dump(policy, allow_unicode=True, sort_keys=False))
+
+
 @pytest.fixture
 def cfg(tmp_path):
     project = tmp_path / 'isolated-project'

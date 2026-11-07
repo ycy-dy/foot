@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 
+from ..core.config import runtime_provider
 from .logs import redact, secret_values
 from .providers import ProviderError, generate
 
@@ -22,6 +23,7 @@ def decide(config, folder, prompt, schema, validate, *, generator=None, on_event
     The directory belongs to a single immutable attempt group. A caller resuming
     must use a fresh group, never overwrite prior AI inputs/outputs.
     """
+    provider = runtime_provider(config)
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=False, mode=0o700)
     # Bound raw input before any processing; never truncate model evidence.
@@ -46,10 +48,10 @@ def decide(config, folder, prompt, schema, validate, *, generator=None, on_event
         if on_event:
             on_event(provider, kind, redact(message, secrets))
 
-    for provider in ('harness',):
+    for provider in (provider,):
         if cancelled and cancelled():
             raise ProviderError('cancelled', '管理员已取消AI决策')
-        emit(provider, 'status', '正在调用DeepSeek Harness推理决策')
+        emit(provider, 'status', '正在调用' + provider + '推理决策')
         try:
             raw = (generator or generate)(provider, safe_prompt, folder, config, schema=schema,
                                           on_event=lambda kind, text: emit(provider, kind, text),
@@ -77,4 +79,4 @@ def decide(config, folder, prompt, schema, validate, *, generator=None, on_event
                 'response_sha256': sha(raw_text), 'validated_sha256': sha(validated_text),
                 'schema_sha256': sha(json_text(schema)), 'model': None,
                 'artifact_dir': folder.name, 'result': result}
-    raise ProviderError('ai_unavailable', 'DeepSeek Harness未返回有效AI决策，不回退CLI，本次推理未完成')
+    raise ProviderError('ai_unavailable', provider + '未返回有效AI决策，不回退其他提供方，本次推理未完成')

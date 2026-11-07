@@ -145,5 +145,13 @@
 - **关联**：[Issue #13](https://github.com/ycy-dy/foot/issues/13)、[处理说明](codex-daemon-version.md)。
 - **授权处理**：用户分别同意restart和官方update --from-cli；后台从0.142.0对齐本机0.167.0，使用本机包，无下载、不清配置/历史、不关闭信任。
 - **验证**：官方version三版本一致；PTY启动10秒保持运行无原错误，用户终端交互仍待确认；proxy无输出/超时未冒报成功。当前其他Codex替代迁移代码仍待收口，不纳入本记录提交。
-- **提交定位**：`docs: record Codex daemon alignment diagnosis [C20261107-016]`，Refs #13；仅说明和台账，无凭据，提交后push。
+- **同步结果**：25a2ba7已推送并核验远程；Issue #13等待用户确认后关闭。
+
+## C20261107-017 · 搜索不可用时Codex CLI替代
+
+- **关联**：[Issue #11](https://github.com/ycy-dy/foot/issues/11)、[规格023](../specs/023-search-codex-fallback/spec.md)。
+- **范围**：用户授权Harness搜索无正式凭据时改用当前唯一Codex CLI；更新policy/runtime路由/工件版本门禁/测试迁移，保留Harness显式切换但不混合；修复codex响应工件复制和新版官方npm入口。
+- **验证**：Lead最终全量360 passed/104.52s；Codex0.167.0 native搜索实测返回官方URL但伴Code Mode host警告，禁host/shell/MCP未绕过；无active后服务PID23567健康。详见023验证。真实赛事、70分和盈利仍待新任务验收。
+- **提交定位**：`feat: use Codex CLI when Harness search unavailable [C20261107-017]`，Refs #11；目标origin/main，push结果后补。
+
 

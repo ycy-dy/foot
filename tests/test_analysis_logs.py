@@ -218,7 +218,7 @@ def test_logs_retention_is_bounded(tmp_path):
     assert max(len(row['message']) for row in rows) <= 4000
 
 
-def test_harness_failure_logs_survive_without_cli_fallback(cfg, tmp_path, monkeypatch):
+def test_codex_failure_logs_survive_without_provider_fallback(cfg, tmp_path, monkeypatch):
     from foot_web.engine import tasks as module
 
     project = tmp_path / 'project'
@@ -238,8 +238,8 @@ def test_harness_failure_logs_survive_without_cli_fallback(cfg, tmp_path, monkey
     monkeypatch.setattr(module, 'generate_report', generate)
     module.run_task(config, task['id'], fetcher=FakeFetcher(), as_of=ANALYSIS_ASOF)
     rows = tasks.store.analysis_logs(task['id'])
-    assert 'harness' in {row['provider'] for row in rows}
-    assert not ({row['provider'] for row in rows} & {'claude', 'codex'})
+    assert 'codex' in {row['provider'] for row in rows}
+    assert not ({row['provider'] for row in rows} & {'claude', 'harness'})
     assert not any('回退到' in row['message'] for row in rows)
     assert any(row['kind'] == 'error' and '超时' in row['message'] for row in rows)
     assert 'do-not-store-secret' not in json.dumps(rows)

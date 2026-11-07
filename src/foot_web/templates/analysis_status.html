@@ -26,7 +26,7 @@
   <summary><span>{{ icon('scroll-text') }}执行日志</span><span id="analysis-log-connection" class="log-connection">正在连接</span></summary>
   <div class="analysis-log-toolbar">
     <div class="segmented log-providers" role="group" aria-label="日志提供方">
-      {% for key, label in [('all', '全部'), ('harness', 'DeepSeek Harness'), ('system', '系统')] %}
+      {% for key, label in [('all', '全部'), ('codex', 'Codex CLI'), ('harness', 'Harness历史/可选'), ('system', '系统')] %}
       <button type="button" data-log-provider="{{ key }}" aria-pressed="{{ 'true' if loop.first else 'false' }}" class="{{ 'on' if loop.first }}">{{ label }}</button>
       {% endfor %}
     </div>

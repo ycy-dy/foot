@@ -11,8 +11,8 @@
 ## 当前状态（2026-11-06）
 
 - 当前执行[规格014](specs/014-evidence-gated-recommendations/spec.md)：沿用用户确认的分段与玩法要求，新增每选项证据可信度>=70%硬门槛，低于或无法可靠评分不推荐。
-- 首页显示当日赛程、已审核发布的推荐和[每日台账](docs/daily-recommendations.md)入口。真实DeepSeek Harness研究、候选算术、AI决策、发布审核与次日复盘相互分离；模型未部署不编概率/EV。
-- [规格021](specs/021-harness-provider/spec.md)：分析/重新分析/最终取舍/复盘统一使用本机 `dsh headless`，不再启动或回退Claude/Codex。使用独立受限profile任务，不接管当前GUI会话；实际模型/额度取决于headless配置，未知不冒报。
+- 首页显示当日赛程、已审核发布的推荐和[每日台账](docs/daily-recommendations.md)入口。真实当前政策提供方研究、候选算术、AI决策、发布审核与次日复盘相互分离；模型未部署不编概率/EV。
+- [规格023](specs/023-search-codex-fallback/spec.md)：用户授权Harness搜索不可用则用Codex CLI替代，当前唯一提供方codex。Harness/pixmoving仍可显式政策切换，不在单任务混合回退，不调用Claude。所有工件提供方与manifest匹配，旧结果不冒充新成功。
 - 原V6文件与编辑器仍删除，不恢复；现行契约为014的policy.md/policy.yaml/scoring.md。定时计划和通知仍默认停用，另行授权。
 - `specs/001`–`specs/012` 仅作为旧实现记录保留，不是现行业务政策；规格006目录已删除，不得建立指向它的活动链接。
 - `history/` 已按用户确认删除，不恢复。已有 `runs/`、`ledger/`、`var/` 等运行工件不因本次文档整理删除或改写。

@@ -9,6 +9,7 @@ from jsonschema import Draft202012Validator
 from .recommendations import all_directions, build_bundle, selection_fingerprint
 from .evidence_confidence import passes
 from .research import ANALYSIS_REQUEST, confirmed_sources, fingerprint, json_text
+from .versions import SUPPORTED_PROVIDERS
 
 TEXT = {'type': 'string', 'minLength': 1, 'maxLength': 4000}
 IDS = {'type': 'array', 'items': TEXT, 'uniqueItems': True}
@@ -191,8 +192,12 @@ def load_decision(folder):
         raise ValueError('AI工件路径无效')
     artifact = folder / artifact_dir
     provider = provenance['provider']
-    if provider != 'harness':
-        raise ValueError('当前AI决策必须来自DeepSeek Harness；旧CLI工件仅作历史参考')
+    manifest = context.get('manifest', {})
+    if provider not in SUPPORTED_PROVIDERS or manifest.get('runtime_provider') != provider:
+        raise ValueError('AI决策提供方与冻结manifest不一致；旧CLI工件仅作历史参考')
+    manifest_path = folder / 'manifest.json'
+    if manifest_path.exists() and json.loads(manifest_path.read_text(encoding='utf-8')) != manifest:
+        raise ValueError('AI决策与冻结manifest不一致')
     if provenance.get('model') is not None:
         raise ValueError('未核实实际模型身份')
     for name, key in [('prompt.txt', 'input_sha256'), ('schema.json', 'schema_sha256'),
@@ -208,7 +213,7 @@ def load_decision(folder):
     if json.loads((artifact / 'attempts.json').read_text(encoding='utf-8')) != provenance['attempts']:
         raise ValueError('AI尝试记录不一致')
     if (not provenance['attempts']
-            or any(row.get('provider') != 'harness' for row in provenance['attempts'])
+            or any(row.get('provider') != provider for row in provenance['attempts'])
             or provenance['attempts'][-1] != {'provider': provider, 'status': 'succeeded', 'code': 'ok'}):
         raise ValueError('AI缺少真实成功尝试')
     if validated['context_sha256'] != fingerprint(context):

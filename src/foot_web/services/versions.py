@@ -12,10 +12,30 @@ RULE_FILES = ('AGENTS.md', POLICY_BASE + '.md', POLICY_BASE + '.yaml',
               'specs/014-evidence-gated-recommendations/scoring.md')
 
 
+SUPPORTED_PROVIDERS = frozenset({'codex', 'harness'})
+
+
+def policy_provider(policy):
+    """One fail-closed provider identity for execution and frozen manifests."""
+    decision = policy.get('decision', {})
+    provider = policy.get('runtime_provider', decision.get('runtime_provider', 'codex'))
+    if (provider not in SUPPORTED_PROVIDERS
+            or decision.get('providers') != [provider]
+            or ('runtime_provider' in decision and decision['runtime_provider'] != provider)):
+        raise ValueError('运行提供方必须为政策声明的唯一codex或harness，禁止Claude及隐式回退')
+    return provider
+
+
+def active_provider(project_dir):
+    policy = yaml.safe_load((Path(project_dir) / (POLICY_BASE + '.yaml')).read_text(encoding='utf-8'))
+    return policy_provider(policy)
+
+
 def rules_manifest(project_dir):
     root = Path(project_dir)
     texts = {name: (root / name).read_text(encoding='utf-8') for name in RULE_FILES}
     config = yaml.safe_load(texts[POLICY_BASE + '.yaml'])
+    provider = policy_provider(config)
     structures = {tuple(sorted(row)) for row in config['football']['allowed_structures']}
     expected = {tuple(sorted(row)) for row in ALLOWED} | {(code, code) for code in SAME_ALLOWED}
     from .evidence_confidence import VERSION, THRESHOLD
@@ -28,7 +48,7 @@ def rules_manifest(project_dir):
         ('每分支整单倍数', str(config['arithmetic']['effective_multiple_strictly_greater_than']) == str(GATE)),
         ('八结构', structures == expected),
         ('真实AI', config['decision']['ai_required'] is True),
-        ('Harness唯一提供方', config['decision']['providers'] == ['harness']),
+        ('政策唯一运行提供方', config['decision']['providers'] == [provider]),
         ('不强制条件票', config['decision']['conditional_pair_required'] is False),
         ('冻结每日台账', config['publication']['daily_frozen_ledger'] is True),
         ('不投注', config['publication']['execute_bet'] is False),
@@ -39,7 +59,7 @@ def rules_manifest(project_dir):
             for path in sorted([*package.rglob('*.py'), *package.rglob('*.patch.yml')])}
     manifest = {
         'workflow_version': WORKFLOW_VERSION, 'spec_revision': config['spec_revision'],
-        'runtime_provider': 'harness',
+        'runtime_provider': provider,
         'rule_hashes': hashes, 'rules_sha256': fingerprint(hashes), 'code_sha256': fingerprint(code),
         'checks': [{'name': name, 'passed': bool(passed)} for name, passed in checks],
         'compatibility': 'supported_subset' if all(ok for _, ok in checks) else 'unsupported',
@@ -51,7 +71,8 @@ def rules_manifest(project_dir):
 
 
 def same_version(first, second):
-    return (first.get('runtime_provider') == second.get('runtime_provider') == 'harness'
+    return (first.get('runtime_provider') in SUPPORTED_PROVIDERS
+            and first.get('runtime_provider') == second.get('runtime_provider')
             and all(first.get(key) == second.get(key)
                     for key in ('rules_sha256', 'code_sha256', 'workflow_version')))
 

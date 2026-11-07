@@ -17,7 +17,7 @@ from foot_web.data.markets import parse_football
 def execute(generate, *, validate=lambda result: result, seconds=180):
     responses, failures, stages = [], [], []
     result = run_research_stages(
-        'harness', 'original research', {}, generate, time.monotonic() + seconds,
+        'codex', 'original research', {}, generate, time.monotonic() + seconds,
         validate=validate, clean=lambda value: value, cancelled=lambda: False,
         on_event=lambda *args: None, on_response=responses.append,
         on_invalid=lambda exc, code: failures.append(code), on_stage=stages.append)

@@ -26,9 +26,9 @@ def test_decision_failure_does_not_fallback(tmp_path):
     calls = []
     def generator(provider, prompt, folder, config, **kwargs):
         calls.append(provider)
-        if provider == 'harness':
+        if provider == 'codex':
             return {'answer': ''}
-        return {'answer': 'DeepSeek Harness的真实模拟返回'}
+        return {'answer': 'Codex的离线模拟返回'}
     def validate(value):
         if not value.get('answer'):
             raise ValueError('empty')
@@ -37,31 +37,31 @@ def test_decision_failure_does_not_fallback(tmp_path):
     with pytest.raises(ProviderError) as error:
         decide({}, folder, 'input', {}, validate, generator=generator)
     assert error.value.code == 'ai_unavailable'
-    assert calls == ['harness']
-    assert json.loads((folder / 'harness.response.json').read_text()) == {'answer': ''}
+    assert calls == ['codex']
+    assert json.loads((folder / 'codex.response.json').read_text()) == {'answer': ''}
     assert not (folder / 'validated.json').exists()
     assert json.loads((folder / 'attempts.json').read_text()) == [
-        {'provider': 'harness', 'status': 'failed', 'code': 'invalid_output'}]
+        {'provider': 'codex', 'status': 'failed', 'code': 'invalid_output'}]
     with pytest.raises(FileExistsError):
         decide({}, folder, 'other', {}, validate, generator=generator)
 
 
-def test_valid_harness_decision_persists_actual_return_hashes(tmp_path):
+def test_valid_codex_decision_persists_actual_return_hashes(tmp_path):
     calls = []
     def generator(provider, *args, **kwargs):
         calls.append(provider)
-        return {'answer': 'DeepSeek Harness的真实模拟返回'}
+        return {'answer': 'Codex的离线模拟返回'}
     folder = tmp_path / 'valid-decision'
     result = decide({}, folder, 'input', {}, lambda value: value, generator=generator)
-    assert calls == ['harness'] and result['provider'] == 'harness'
-    assert result['result']['answer'] == 'DeepSeek Harness的真实模拟返回'
-    for field, filename in [('response_sha256', 'harness.response.json'),
+    assert calls == ['codex'] and result['provider'] == 'codex'
+    assert result['result']['answer'] == 'Codex的离线模拟返回'
+    for field, filename in [('response_sha256', 'codex.response.json'),
                             ('schema_sha256', 'schema.json'), ('validated_sha256', 'validated.json')]:
         assert result[field] == hashlib.sha256((folder / filename).read_bytes()).hexdigest()
-    assert result['attempts'] == [{'provider': 'harness', 'status': 'succeeded', 'code': 'ok'}]
+    assert result['attempts'] == [{'provider': 'codex', 'status': 'succeeded', 'code': 'ok'}]
 
 
-@pytest.mark.parametrize('code,expected', [('timeout', ['harness']), ('cleanup_failed', ['harness']), ('cancelled', ['harness'])])
+@pytest.mark.parametrize('code,expected', [('timeout', ['codex']), ('cleanup_failed', ['codex']), ('cancelled', ['codex'])])
 def test_decision_failure_never_synthetic_success(tmp_path, code, expected):
     calls = []
     def generator(provider, *args, **kwargs):
@@ -155,7 +155,7 @@ def test_production_review_requires_ai_return_before_overlay(review_case, monkey
     calls = []
     def generator(provider, prompt, folder, config, **kwargs):
         calls.append(provider)
-        assert provider == 'harness'
+        assert provider == 'codex'
         data = json.loads(prompt.split('=== FROZEN REVIEW DATA ===\n')[1])
         return response(data['rows'])
     monkeypatch.setattr(decisions, 'generate', generator)
@@ -163,18 +163,19 @@ def test_production_review_requires_ai_return_before_overlay(review_case, monkey
     jobs.begin_review('ai-review-one', '2026-11-04', 'admin1')
     run_review(cfg, 'ai-review-one')
     assert jobs.review('ai-review-one')['status'] == 'succeeded'
-    assert calls == ['harness']
+    assert calls == ['codex']
     folder = Path(cfg['PROJECT_DIR']) / 'runs/2026-11-04/ai-review-one'
     result = json.loads((folder / 'settlement.json').read_text())
     assert result['analysis_mode'] == 'ai_review'
-    assert result['ai_analysis']['provider'] == 'harness'
+    assert result['ai_analysis']['provider'] == 'codex'
     assert result['rows'][0]['hit'] is True and result['rows'][0]['theoretical_return'] == '3.60'
     assert result['rows'][0]['actual_return'] is None
     report = (folder / 'review.md').read_text()
-    assert 'AI返回的复盘总结' in report and 'AI逐票解释' in report and 'harness' in report
+    assert 'AI返回的复盘总结' in report and 'AI逐票解释' in report and 'codex' in report
     manifest = json.loads((folder / 'manifest.json').read_text())
     assert manifest['ai_analysis']['response_sha256']
-    # Later Harness failure must not replace the last real AI success.
+    assert manifest['ai_analysis']['provider'] == result['ai_analysis']['provider'] == 'codex'
+    # Later Codex failure must not replace the last real AI success.
     monkeypatch.setattr(decisions, 'generate', lambda *a, **kw: (_ for _ in ()).throw(ProviderError('timeout', 'timeout')))
     jobs.begin_review('ai-review-failed', '2026-11-04', 'admin1')
     run_review(cfg, 'ai-review-failed')

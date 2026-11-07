@@ -8,6 +8,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from ..data.fetcher import Fetcher
+from ..core.config import runtime_provider
 from ..core.files import write_once
 from ..services.recommendations import render_report
 from ..services.selection import (DECISION_SCHEMA, apply_decision, decision_context, load_decision,
@@ -56,6 +57,7 @@ def run_workflow(config, task_id, prepare, generator, fetcher=None, as_of=None):
         return redact(value, secrets, limit=None) if isinstance(value, str) else value
 
     try:
+        selected_provider = runtime_provider(config)
         budget = max(30, min(14400, int(config.get('FOOT_ANALYSIS_BUDGET') or 1800)))
         timeout = max(10, min(3600, int(config.get('FOOT_MATCH_TIMEOUT') or config.get('FOOT_ANALYSIS_TIMEOUT') or 180)))
         if research.cancelled(task_id):
@@ -82,7 +84,7 @@ def run_workflow(config, task_id, prepare, generator, fetcher=None, as_of=None):
                      for match in source['football'] + source['basketball']]
             research.initialize(task_id, manifest, source, items)
             log('system', 'status', f'已冻结 {len(items)} 场完整清单；逐场保存，单场时限 {timeout} 秒，本轮预算 {budget} 秒')
-            log('system', 'status', 'DeepSeek Harness总任务：' + ANALYSIS_REQUEST + ' · 业务日 ' + task['business_date'])
+            log('system', 'status', selected_provider + '总任务：' + ANALYSIS_REQUEST + ' · 业务日 ' + task['business_date'])
             workflow = research.workflow(task_id)
         else:
             current, _ = rules_manifest(config['PROJECT_DIR'])
@@ -119,7 +121,7 @@ def run_workflow(config, task_id, prepare, generator, fetcher=None, as_of=None):
             prefix = f'{match["num"]} {first_team} VS {second_team}'
             research.update_item(task_id, key, status='running', as_of=decision_time.isoformat(), message='正在研究证据')
             item_attempts = item['attempts'] or []
-            for provider in ('harness',):
+            for provider in (selected_provider,):
                 if provider in unavailable:
                     continue
                 if research.cancelled(task_id):
@@ -127,7 +129,7 @@ def run_workflow(config, task_id, prepare, generator, fetcher=None, as_of=None):
                 remaining = budget - (time.monotonic() - started_round)
                 if remaining < 10:
                     break
-                message = prefix + ' · DeepSeek Harness 研究中'
+                message = prefix + ' · ' + provider + ' 研究中'
                 store.update_analysis(task_id, provider=provider, message=message, attempts=attempts)
                 log(provider, 'status', message)
                 started = time.monotonic()
@@ -208,8 +210,8 @@ def run_workflow(config, task_id, prepare, generator, fetcher=None, as_of=None):
             if timeout_stopped:
                 log('system', 'warning', '连续两次研究超时，停止本轮以避免重复消耗；成功检查点保留，请用户明确重试')
                 break
-            if 'harness' in unavailable:
-                log('system', 'error', 'DeepSeek Harness不可用，不回退CLI；保留剩余比赛等待续跑')
+            if selected_provider in unavailable:
+                log('system', 'error', selected_provider + '不可用，不回退其他提供方；保留剩余比赛等待续跑')
                 break
         progress = research.progress(task_id)
         if progress['failed'] or progress['pending'] or progress['running']:

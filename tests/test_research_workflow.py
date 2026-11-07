@@ -213,7 +213,7 @@ def test_ai_decision_failure_preserves_research_and_resume_only_decides(project,
     run_task(project, task['id'], fetcher=FakeFetcher(), generate=generate, as_of=NOW)
     assert tasks.get(task['id'])['status'] == ('cancelled' if failure == 'cancelled' else 'partial')
     assert tasks.get(task['id'])['progress']['completed'] == 28
-    assert decisions == ['harness']
+    assert decisions == ['codex']
     folder = Path(project['PROJECT_DIR']) / 'runs' / '2026-11-04' / task['id']
     assert not (folder / 'recommendations.draft.json').exists()
     assert not (folder / 'ai-decision.json').exists()
@@ -230,14 +230,14 @@ def test_ai_decision_failure_preserves_research_and_resume_only_decides(project,
     assert (folder / 'ai-decision.json').exists()
 
 
-def test_ai_decision_invalid_harness_does_not_fallback(project):
+def test_ai_decision_invalid_codex_does_not_fallback(project):
     from conftest import research_response
     from foot_web.engine.tasks import AnalysisTasks, run_task
     tasks = AnalysisTasks(project, launcher=lambda *args: os.getpid())
     task, _ = tasks.start('2026-11-04', 'admin1')
 
     def generate(provider, prompt, *args, **kwargs):
-        if '=== RECOMMENDATION DECISION INPUT ===' in prompt and provider == 'harness':
+        if '=== RECOMMENDATION DECISION INPUT ===' in prompt and provider == 'codex':
             return {'not_a_decision': True}
         return research_response(prompt)
 
@@ -250,8 +250,8 @@ def test_ai_decision_invalid_harness_does_not_fallback(project):
     attempts_paths = list(folder.glob('decision-*/attempts.json'))
     assert len(attempts_paths) == 1
     assert json.loads(attempts_paths[0].read_text()) == [
-        {'provider': 'harness', 'status': 'failed', 'code': 'invalid_output'}]
-    assert json.loads((attempts_paths[0].parent / 'harness.response.json').read_text()) == {'not_a_decision': True}
+        {'provider': 'codex', 'status': 'failed', 'code': 'invalid_output'}]
+    assert json.loads((attempts_paths[0].parent / 'codex.response.json').read_text()) == {'not_a_decision': True}
     assert not (attempts_paths[0].parent / 'validated.json').exists()
 
 

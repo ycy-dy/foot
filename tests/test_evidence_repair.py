@@ -62,7 +62,7 @@ def test_repair_same_provider_preserves_raw_failures_and_real_sources(run_round)
 
     task, items, folder = run(generate)
     assert task['status'] == 'succeeded'
-    assert [c[0] for c in calls] == ['harness'] * 4
+    assert [c[0] for c in calls] == ['codex'] * 4
     for item in items:
         assert [a['stage'] for a in item['attempts']] == ['research', 'evidence_structure']
         assert [a['status'] for a in item['attempts']] == ['failed', 'succeeded']
@@ -84,12 +84,12 @@ def test_only_one_repair_then_failure_without_fallback_or_python_mutation(run_ro
     def generate(provider, prompt, *args, **kwargs):
         calls.append(provider)
         match = original_match(prompt)
-        result = invalid_evidence(match) if provider == 'harness' else payload_for(match)
+        result = invalid_evidence(match) if provider == 'codex' else payload_for(match)
         return result
 
     task, items, folder = run(generate)
     assert task['status'] == 'failed'
-    assert calls == ['harness', 'harness'] * 2
+    assert calls == ['codex', 'codex'] * 2
     assert all(i['payload'] is None for i in items)
     assert not (folder / 'report.draft.md').exists()
     for i in items:
@@ -98,7 +98,7 @@ def test_only_one_repair_then_failure_without_fallback_or_python_mutation(run_ro
         assert json.loads((checkpoint / i['attempts'][0]['response']).read_text())['dimensions'][0]['status'] == 'verified'
 
 
-def test_harness_invalid_stops_after_one_repair_per_match(run_round):
+def test_codex_invalid_stops_after_one_repair_per_match(run_round):
     run, _, _ = run_round
     calls = []
 
@@ -108,7 +108,7 @@ def test_harness_invalid_stops_after_one_repair_per_match(run_round):
 
     task, items, _ = run(generate)
     assert task['status'] == 'failed'
-    assert calls == ['harness', 'harness'] * 2
+    assert calls == ['codex', 'codex'] * 2
     assert all(i['payload'] is None for i in items)
     assert all(len(i['attempts']) == 2 for i in items)
 
@@ -121,13 +121,13 @@ def test_generator_error_never_triggers_repair_and_config_skips_round(run_round,
     def generate(provider, prompt, *args, **kwargs):
         assert '=== VALIDATION FAILURE ===' not in prompt
         calls.append(provider)
-        if provider == 'harness':
+        if provider == 'codex':
             raise ProviderError(code, '原调用失败')
         return payload_for(original_match(prompt))
 
     task, items, _ = run(generate)
     assert task['status'] == 'failed'
-    assert calls == ['harness'] * (1 if code in ('authentication', 'configuration') else 2)
+    assert calls == ['codex'] * (1 if code in ('authentication', 'configuration') else 2)
     assert all(i['payload'] is None for i in items)
     assert not any(a['stage'] == 'evidence_repair' for i in items for a in i['attempts'])
 
@@ -145,7 +145,7 @@ def test_cleanup_and_cancel_stop_immediately(run_round, code, during_repair):
         raise ProviderError(code, '立即停止')
 
     task, items, _ = run(generate)
-    assert calls == ['harness'] * (2 if during_repair else 1)
+    assert calls == ['codex'] * (2 if during_repair else 1)
     assert task['status'] == ('cancelled' if code == 'cancelled' else 'failed')
     assert items[0]['attempts'][-1]['code'] == code
 
@@ -179,7 +179,7 @@ def test_cancel_after_return_never_repairs(run_round):
         return invalid_evidence(original_match(prompt))
 
     result, items, folder = run(generate)
-    assert calls == ['harness']
+    assert calls == ['codex']
     assert result['status'] == 'cancelled'
     assert items[0]['attempts'][0]['code'] == 'cancelled'
     assert (folder / 'matches' / items[0]['match_key'] / items[0]['attempts'][0]['response']).exists()
@@ -203,7 +203,7 @@ def test_repair_uses_only_remaining_original_budget(run_round, monkeypatch, limi
         return payload_for(match)
 
     _, _, _ = run(generate)
-    assert calls[:2] == [('harness', 45, False), ('harness', 35, True)]
+    assert calls[:2] == [('codex', 45, False), ('codex', 35, True)]
 
 
 def test_insufficient_remaining_budget_skips_repair(run_round, monkeypatch):
@@ -220,6 +220,6 @@ def test_insufficient_remaining_budget_skips_repair(run_round, monkeypatch):
         return invalid_evidence(original_match(prompt))
 
     task, items, _ = run(generate)
-    assert calls == ['harness']
+    assert calls == ['codex']
     assert task['status'] == 'failed'
     assert [a['code'] for a in items[0]['attempts']] == ['invalid_output', 'timeout']

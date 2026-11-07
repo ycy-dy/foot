@@ -51,7 +51,8 @@ decision:
   joint_method: labelled_independence_approximation
   non_odds_raise_p_mkt: false
   ai_required: true
-  providers: [harness]
+  runtime_provider: codex
+  providers: [codex]
   min_reasons_per_option: 2
   require_non_odds_source: true
   require_failure_path_and_withdrawal: true

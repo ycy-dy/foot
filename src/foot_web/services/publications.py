@@ -235,7 +235,7 @@ class PublicationService:
                          'audit.json': json_text(fresh), 'publication.json': json_text(publication),
                          'ai-decision.json': json_text(envelope), 'decision-context.json': json_text(context)}
             for artifact in (decision_source / envelope['artifact_dir']).iterdir():
-                if artifact.is_file() and artifact.name in ('prompt.txt', 'schema.json', 'harness.response.json',
+                if artifact.is_file() and artifact.name in ('prompt.txt', 'schema.json', 'harness.response.json', 'codex.response.json',
                                                            'validated.json', 'attempts.json'):
                     artifacts[envelope['artifact_dir'] + '/' + artifact.name] = artifact.read_text(encoding='utf-8')
             for name, text in artifacts.items():

@@ -5,6 +5,7 @@ import os
 import uuid
 from pathlib import Path
 
+from ..core.config import runtime_provider
 from ..core.files import write_once
 from ..core.privacy import redact, secret_values
 from .research import fingerprint, json_text, moment, option_catalog, validate_evidence
@@ -21,7 +22,9 @@ def reuse_recent(config, task, workflow, folder, store, now, log):
         return []
     manifest, previous = workflow['manifest'], parent['manifest']
     from .versions import same_version
-    if not same_version(manifest, previous) or manifest.get('schema_sha256') != previous.get('schema_sha256'):
+    provider = runtime_provider(config)
+    if (manifest.get('runtime_provider') != provider or not same_version(manifest, previous)
+            or manifest.get('schema_sha256') != previous.get('schema_sha256')):
         log('system', 'warning', '原检查点的规则/研究结构不匹配，本次重新研究')
         return []
     secrets = secret_values(config, os.environ)
@@ -40,7 +43,9 @@ def reuse_recent(config, task, workflow, folder, store, now, log):
         if item['status'] != 'pending' or not old or not old['payload'] or store.cancelled(task['id']):
             continue
         try:
-            if not old.get('attempts') or old['attempts'][-1].get('provider') != 'harness':
+            if (not old.get('attempts')
+                    or any(row.get('provider') != provider for row in old['attempts'])
+                    or old['attempts'][-1].get('status') != 'succeeded'):
                 continue
             age = (moment(now)-moment(old['as_of'])).total_seconds()
             if not 0 <= age <= limit*60 or moment(item['match']['kickoff']) <= moment(now):
@@ -48,7 +53,8 @@ def reuse_recent(config, task, workflow, folder, store, now, log):
             original_path = (Path(config['PROJECT_DIR']) / 'runs' / task['business_date'] / parent_id
                              / 'matches' / old['match_key'] / old['attempts'][-1]['checkpoint'])
             original = json.loads(original_path.read_text(encoding='utf-8'))
-            if original['payload'] != old['payload']:
+            if (original.get('provider') != provider or original.get('manifest') != previous
+                    or original['payload'] != old['payload']):
                 raise ValueError('原证据检查点不一致')
             evidence = clean(copy.deepcopy(old['payload']))
             available = {option['id'] for option in option_catalog(item['match'])}
@@ -61,7 +67,7 @@ def reuse_recent(config, task, workflow, folder, store, now, log):
                       'research_as_of': old['as_of'], 'payload_sha256': fingerprint(old['payload']),
                       'original_code_sha256': previous['code_sha256']}
             write_once(target / filename, json_text({'match': item['match'], 'payload': evidence,
-                'as_of': old['as_of'], 'manifest': manifest, 'source': source,
+                'as_of': old['as_of'], 'provider': provider, 'manifest': manifest, 'source': source,
                 'role': 'reused_evidence_not_a_new_cli_call'}))
             record = {'provider': old['attempts'][-1]['provider'], 'sport': item['sport'], 'num': item['num'],
                       'stage': 'evidence_reuse', 'status': 'succeeded', 'code': 'cached', 'seconds': 0.0,
