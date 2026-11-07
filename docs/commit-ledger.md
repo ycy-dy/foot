@@ -115,5 +115,12 @@
 - **关联**：[Issue #9](https://github.com/ycy-dy/foot/issues/9)、[规格020](../specs/020-bounded-research/spec.md)。
 - **修复**：逐场排除工程AGENTS，专用Claude system prompt，有限3search/3fetch；工具call id去重；预留25%最多45s无工具AI整理公开证据，原schema验证才成功，未知仍不推荐；连续最终timeout两次停止保留。Codex native standalone_web_search在host/shell/MCP禁用下实测可用。
 - **验证部署**：全量327 passed/107.02s，两提供方有界真实公开搜索返回JSON/URL；无active后重启5020 PID64617。见[020验证](../specs/020-bounded-research/verification.md)。未重跑整日真实赛事，不冒报70达标或模型性能。
-- **提交定位**：`fix: bound web research and isolate evidence structuring [C20261107-012]`，Refs #9；提交后push main，不含环境/运行工件，不改旧原票。
+- **同步结果**：62b7fda已push并核验远程。
+
+## C20261107-013 · 本机精确OAuth回调配置
+
+- **关联**：[Issue #10](https://github.com/ycy-dy/foot/issues/10)、[登录说明](loopback-login.md)。
+- **处理**：用户确认127.0.0.1入口，本地.env追加精确loopback callback，保留原值；环境文件不提交，不含密钥/私有入口。无应用/机器人创建、不放开Host。
+- **验证**：auth17 passed，空闲后重启PID80955；生产begin302至官方授权，callback精确匹配和state存在，真实扫码/官方服务端白名单待用户验证。
+- **提交定位**：`docs: record exact loopback OAuth callback fix [C20261107-013]`，Refs #10；仅提交非敏感说明和台账，push后核验。
 
