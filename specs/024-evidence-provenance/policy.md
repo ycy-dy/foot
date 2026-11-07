@@ -4,7 +4,7 @@
 
 ## Claim级字段
 
-每个可用非赔率claim必须带（当前实现已拒绝缺失/赔率/未人工核验claim，但content_sha256与quote的真实性仍需后续抓取器人工/程序核验）：claim_id、match_key、dimension_id、option_id（适用时）、claim、source_id、source_type（non_odds/odds/unknown）、source_tier、published_at、effective_at、retrieved_at、content_sha256、quote、locator、evidence_group_id、support_status（supports/contradicts/context/unknown）、verification_status（unverified/agent_reported/manual_verified）。
+每个可用非赔率claim必须带（以下为目标契约，尚未全部接入生产；现有空claims迁移豁免仍未关闭，AI自报人工核验不是认证）：claim_id、match_key、dimension_id、option_id（适用时）、claim、source_id、source_type（non_odds/odds/unknown）、source_tier、published_at、effective_at、retrieved_at、content_sha256、quote、locator、evidence_group_id、support_status（supports/contradicts/context/unknown）、verification_status（unverified/agent_reported/manual_verified）。
 
 缺content_hash/quote/locator/retrieved_at/source_type，或仅有AI自报manual_verified，不能进入可发布70分；按unknown/blocked处理。source_type=odds不能满足非赔率理由。claim必须实际支持所选option，context/contradicts不能加分；同一content_sha/group只计一次。公开来源原文抓取必须有大小、协议、重定向和敏感URL限制；失败显示unknown，不补摘要。
 

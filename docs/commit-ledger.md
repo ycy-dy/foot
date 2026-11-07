@@ -183,7 +183,15 @@
 - **关联**：[Issue #14](https://github.com/ycy-dy/foot/issues/14)、[规格030](../specs/030-tool-budget-integrity/spec.md)。
 - **范围**：Codex按item.id/action一次性计search/fetch，重复/乱序/缺ID/冲突/越权反例阻断和进程清理；不输出工具参数/结果/私有推理。快照20MB只读恢复，坏最新回退/全部坏不造/stale和跳过计数，不更改历史文件。
 - **验证**：专项58 passed，完整431 passed/174.87s，active为空后5020重启PID60549健康。真实CLI协议未重测，不能用合成事件保证所有未来版本兼容。
-- **提交定位**：`fix: make tool budgets idempotent and recover damaged snapshots [C20261107-025]`，Refs #14；提交后push核验，不含环境/运行台账。
+- **同步结果**：db8ecd4已推送核验，线上readiness通过。
+
+## C20261107-026 · 独立来源/引用/人工复核凭据
+
+- **关联**：[Issue #14](https://github.com/ycy-dy/foot/issues/14)、[规格031](../specs/031-provenance-receipts/spec.md)。
+- **范围**：本地内容寻址不可覆盖source正文、quote字面匹配与绑定、受信人工action review receipt；verify重验哈希/时序/非赔率/匹配身份，AI manual_verified字符串不能代替磁盘凭据。无网络/环境/数据库访问，不接生产门禁冒报。
+- **验证**：独立反例50 passed，证据组合58 passed；完整回归及部署见031验证。URL/quote字面一致不等于网页抓取或语义真，actor鉴权和目录保护属后续集成责任。
+- **边界**：024空claims新发布豁免/管理员复核界面/安全抓取尚未解决，仍P0开放；本模块是基础设施非完整来源认证。修正文档过度描述。
+- **提交定位**：`feat: add immutable source and human-review receipts [C20261107-026]`，Refs #14；提交后push核验，私有运行资料排除。
 
 
 
