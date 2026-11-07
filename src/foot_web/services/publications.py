@@ -19,6 +19,7 @@ from .recommendations import all_directions, render_report
 from .selection import apply_decision, decision_context, load_decision
 from .research import fingerprint, json_text, match_key, moment, option_catalog
 from .versions import rules_manifest, same_version
+from .evaluation_baseline import freeze_baseline, validate_baseline
 
 TZ = ZoneInfo('Asia/Shanghai')
 
@@ -40,18 +41,11 @@ def fresh_input(fetcher, day, now):
         if meta.get('stale') or age < -5 or age > 120:
             raise PublicationError('官方刷新不可用或快照过期，不能审核发布')
         if not source_update:
-            # Offline fixture adapters may use a non-date sentinel; real official
-            # fetchers must provide an ISO source clock (validated below).
-            if meta.get('captured_at') != 'fixture':
-                raise PublicationError('官方刷新缺少源端更新时间，不能审核发布')
-            source_update = meta.get('captured_at')
-        if source_update == 'fixture':
-            source_age = 0
-        else:
-            try:
-                source_age = (moment(now) - moment(source_update)).total_seconds()
-            except (TypeError, ValueError):
-                raise PublicationError('官方源端更新时间无效，不能审核发布') from None
+            raise PublicationError('官方刷新缺少源端更新时间，不能审核发布')
+        try:
+            source_age = (moment(now) - moment(source_update)).total_seconds()
+        except (TypeError, ValueError):
+            raise PublicationError('官方源端更新时间无效，不能审核发布') from None
         if source_age < -300 or source_age > 900:
             raise PublicationError('官方源端数据过期或时钟异常，不能审核发布')
         parsed[sport] = [m for m in parser(raw[sport]) if m['business_date'] == day]
@@ -204,11 +198,17 @@ class PublicationService:
                 errors.append('独立发布审核未通过')
         except (OSError, subprocess.SubprocessError):
             errors.append('独立发布审核不可用')
+        try:
+            baseline = freeze_baseline(refreshed, current, now)
+        except (ValueError, KeyError, TypeError):
+            baseline = None
+            errors.append('冻结市场基准不可用，不能发布或回算补造')
         checked = {'id': 'check-' + uuid.uuid4().hex, 'task_id': task_id, 'actor': actor,
                    'created_at': now.isoformat(), 'passed': not errors, 'errors': errors, 'notes': notes,
                    'script': script, 'bundle': bundle, 'source': copy.deepcopy(workflow.get('source', {})), 'selection_sha256': fingerprint(bundle),
                    'manifest': current, 'official_source': copy.deepcopy(refreshed),
-                   'official_sha256': fingerprint(refreshed)}
+                   'official_sha256': fingerprint(refreshed), 'baseline': baseline,
+                   'baseline_sha256': baseline['content_sha256'] if baseline else None}
         if persist:
             self.store.save_check(checked)
             from .daily_ledger import draft_ledger
@@ -241,14 +241,18 @@ class PublicationService:
                            'business_date': bundle['business_date'], 'created_at': fresh['created_at'], 'actor': actor,
                            'previous_id': previous['id'] if previous else None, 'status': 'published',
                            'folder': str(folder), 'selection_sha256': fresh['selection_sha256'],
-                           'manifest': bundle['manifest'], 'ai_decision': copy.deepcopy(bundle['ai_decision'])}
+                           'manifest': fresh['baseline']['manifest'], 'ai_decision': copy.deepcopy(bundle['ai_decision']),
+                           'baseline_sha256': fresh['baseline_sha256']}
+            validate_baseline(fresh['baseline'], publication, fresh | {
+                'source': fresh['official_source'], 'source_sha256': fresh['official_sha256']})
             tickets = normalized_tickets(bundle, publication_id)
             folder.mkdir(parents=True, mode=0o700, exist_ok=False)
             decision_source = self.root / 'runs' / bundle['business_date'] / task_id
             envelope, context = load_decision(decision_source)
             from .daily_ledger import freeze_ledger
             daily = freeze_ledger(publication, bundle, tickets, fresh)
-            artifacts = {'daily-ledger.json': json_text(daily),
+            artifacts = {'baseline.json': json_text(fresh['baseline']),
+                         'daily-ledger.json': json_text(daily),
                          'report.md': render_report(bundle, self.research.items(task_id), published=True),
                          'recommendations.json': json_text(bundle), 'tickets.json': json_text(tickets),
                          'audit.json': json_text(fresh | {'source': fresh['official_source'],

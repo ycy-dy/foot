@@ -19,7 +19,7 @@ from foot_web.services.reviews import ReviewService, load_tickets
 class FreshFetcher(FakeFetcher):
     def get(self, sport, force=False):
         raw, _ = super().get(sport, force)
-        return raw, {'captured_at': ANALYSIS_ASOF.isoformat(), 'source_update': 'fixture', 'stale': False}
+        return raw, {'captured_at': ANALYSIS_ASOF.isoformat(), 'source_update': ANALYSIS_ASOF.isoformat(), 'stale': False}
 
 
 @pytest.fixture

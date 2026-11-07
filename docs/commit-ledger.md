@@ -168,7 +168,15 @@
 - **范围**：公开只读readiness核心表/政策检查与503脱敏；每请求CSP nonce修复FOOT初始化/主题/发布确认被阻断；发布audit真正冻结official_source及哈希，不再把check envelope当source。
 - **验证**：原全量372 passed，新增真实发布source形状/哈希断言专项8 passed；最终完整回归见[029验证](../specs/029-service-readiness/verification.md)。缺库不创建，旧报告不改，探测不调模型/搜索/消息；线上readiness/nonce已验证。
 - **边界**：就绪true不是来源真实、模型预测认证或全部功能完成；冻结baseline和claim真实性/ID冲突仍待修。只提交本轮明确代码/测试/规格，原env/运行台账不入Git。
-- **提交定位**：`fix: verify readiness CSP and official snapshot contracts [C20261107-023]`，Refs #14；提交后推送核验，不预宣称。
+- **同步结果**：ed9b85a已推送核验，部署readiness真JSON与nonce匹配。
+
+## C20261107-024 · 真实冻结市场基准与官方身份修复
+
+- **关联**：[Issue #14](https://github.com/ycy-dy/foot/issues/14)、[规格026](../specs/026-frozen-evaluation/spec.md)。
+- **范围**：审核生成独立市场研究baseline并冻结schema/source/manifest/provider/content哈希，发布绑定baseline.json，评估只读不重算；缺失/篡改/未来/source/provider错均gap。基准非推荐，不用其绕AI证据门槛。
+- **身份/数据**：official_id不再回退周编号/None字符串，match_key绑定完整业务日/双方/开球，去除fixture字符串生产时钟豁免，测试使用真实ISO。
+- **验证**：真实离线Publication→Evaluation无mock build_bundle集成及负例专项38 passed；全量385 passed/172.95s。active为空后部署5020 PID53047健康。旧原票/基准无回填，模型CI/OOS未完成。
+- **提交定位**：`fix: freeze evaluation benchmarks and bind official match identity [C20261107-024]`，Refs #14；提交后push核验，私有运行数据排除。
 
 
 

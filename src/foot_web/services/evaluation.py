@@ -5,8 +5,8 @@ import sqlite3
 from pathlib import Path
 
 from ..storage.publications import select_effective_tickets
-from .research import fingerprint, match_key, moment
-from .recommendations import build_bundle
+from .research import fingerprint
+from .evaluation_baseline import validate_baseline
 from .reviews import settle
 
 EPSILON = 1e-15
@@ -133,14 +133,8 @@ class Evaluation:
             try:
                 folder = root / 'runs' / day / publication['id']
                 audit = json.loads((folder / 'audit.json').read_text(encoding='utf-8'))
-                source = audit.get('source') or audit.get('bundle', {}).get('source')
-                if source is None:
-                    raise ValueError('冻结审核缺少source快照，不能配对评估')
-                if moment(source['as_of']) > moment(publication['created_at']):
-                    raise ValueError('事前快照时点晚于发布')
-                items = [{'match_key': match_key(match), 'match': match, 'status': 'succeeded', 'payload': None}
-                         for match in source['football'] + source['basketball']]
-                baseline = build_bundle(source, items, publication['manifest'], publication['created_at'])
+                baseline = json.loads((folder / 'baseline.json').read_text(encoding='utf-8'))
+                baseline_tickets = validate_baseline(baseline, publication, audit)
                 actual = json.loads((folder / 'tickets.json').read_text(encoding='utf-8'))
                 if day not in results_by_day and day in reviews:
                     review_id = reviews[day]['run_id']
@@ -149,7 +143,7 @@ class Evaluation:
                     results_by_day[day] = json.loads((root / 'runs' / day / review_id / 'results.json').read_text(encoding='utf-8'))
                 ai_by_title = {ticket['title']: ticket for ticket in actual
                                if ticket['kind'] in ('足球最终串', '篮球最终串')}
-                base_by_title = {group['name']: _baseline_ticket(group, day) for group in baseline['groups']}
+                base_by_title = {ticket['title']: ticket for ticket in baseline_tickets}
                 for title in sorted(ai_by_title.keys() | base_by_title.keys()):
                     ai, base = ai_by_title.get(title), base_by_title.get(title)
                     item_sport = (ai or base)['legs'][0]['sport']
@@ -162,8 +156,8 @@ class Evaluation:
                         'legs': (ai or {}).get('legs', []) + (base or {}).get('legs', []),
                         'baseline_ticket': base, 'ai_ticket': ai, 'publication_id': publication['id'],
                         'withdrawn': publication['status'] == 'withdrawn'})
-            except (OSError, ValueError, KeyError, TypeError):
-                gaps.append(day + ' 冻结发布/赛果资料不完整，未纳入同批对照')
+            except (OSError, ValueError, KeyError, TypeError, IndexError) as exc:
+                gaps.append(day + ' 冻结baseline/发布/赛果资料无效，未纳入同批对照：' + str(exc))
         baseline_rows, ai_rows = [], []
         available_base = available_ai = paired = 0
         for observation in select_effective_tickets(observations):

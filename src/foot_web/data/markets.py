@@ -55,7 +55,7 @@ def parse_football(data):
             hhad = market(m, 'hhad', 'HHAD', 'hda')
             ttg = market(m, 'ttg', 'TTG', [f's{i}' for i in range(8)])
             hafu = market(m, 'hafu', 'HAFU', list(HAFU_LBL))
-            official_id = (m.get('matchId') or m.get('matchIdStr') or m.get('matchID') or m.get('id') or m.get('matchNumStr'))
+            official_id = (m.get('matchId') or m.get('matchIdStr') or m.get('matchID') or m.get('id'))
             crs_src = m.get('crs') or {}
             crs_keys = [k for k in crs_src if k.startswith('s') and not k.endswith('f') and crs_src.get(k)]
             crs = {'prices': {k: crs_src[k] for k in crs_keys}, 'p': devig({k: crs_src[k] for k in crs_keys}), **pool_state(m, 'CRS')}
@@ -77,7 +77,7 @@ def parse_football(data):
                     trigger = 'hh'
                 elif Ld > 0 and Decimal(hhad['prices']['a']) < Decimal(hhad['prices']['h']):
                     trigger = 'aa'
-            out.append({'sport': 'football', 'num': m['matchNumStr'], 'official_id': str(official_id), 'business_date': bd, 'kickoff': ko.isoformat(sep=' ', timespec='minutes'),
+            out.append({'sport': 'football', 'num': m['matchNumStr'], 'official_id': str(official_id) if official_id is not None else None, 'business_date': bd, 'kickoff': ko.isoformat(sep=' ', timespec='minutes'),
                         'period': football_period(bd, ko), 'league': m.get('leagueAbbName', ''), 'home': m.get('homeTeamAllName', ''),
                         'away': m.get('awayTeamAllName', ''), 'status': m.get('matchStatus', ''), 'L': L,
                         'had': had, 'hhad': hhad, 'ttg': ttg, 'hafu': hafu, 'crs': crs, 'dd_p': dd_p, 'best_ttg': best_ttg,
@@ -92,8 +92,8 @@ def parse_basketball(data):
             bd = m['businessDate']
             ko = datetime.fromisoformat(f"{m['matchDate']} {m['matchTime']}")
             d = datetime.fromisoformat(bd)
-            official_id = (m.get('matchId') or m.get('matchIdStr') or m.get('matchID') or m.get('id') or m.get('matchNumStr'))
-            out.append({'sport': 'basketball', 'num': m['matchNumStr'], 'official_id': str(official_id), 'business_date': bd, 'kickoff': ko.isoformat(sep=' ', timespec='minutes'),
+            official_id = (m.get('matchId') or m.get('matchIdStr') or m.get('matchID') or m.get('id'))
+            out.append({'sport': 'basketball', 'num': m['matchNumStr'], 'official_id': str(official_id) if official_id is not None else None, 'business_date': bd, 'kickoff': ko.isoformat(sep=' ', timespec='minutes'),
                         'period': 'early' if ko < d.replace(hour=23) else 'late', 'league': m.get('leagueAbbName', ''),
                         'away': m.get('awayTeamAllName', ''), 'home': m.get('homeTeamAllName', ''), 'status': m.get('matchStatus', ''),
                         'mnl': market(m, 'mnl', 'MNL', 'ha'), 'hdc': market(m, 'hdc', 'HDC', 'ha'), 'hilo': market(m, 'hilo', 'HILO', 'hl')})

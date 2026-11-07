@@ -62,7 +62,8 @@ def test_evaluation_page_is_authenticated_and_does_not_claim_model_deployment(cl
 def test_paired_comparison_retains_earlier_period_and_withdrawn_original(cfg, tmp_path, monkeypatch):
     from foot_web.services.evaluation import Evaluation, _baseline_ticket
     from foot_web.storage.publications import PublicationsStore
-    from foot_web.services.research import moment
+    from foot_web.services.research import moment, fingerprint
+    from foot_web.services.evaluation_baseline import freeze_baseline
     root = tmp_path / 'project'
     config = cfg | {'PROJECT_DIR': str(root)}
     store = PublicationsStore(config['DATA_DIR'])
@@ -77,21 +78,27 @@ def test_paired_comparison_retains_earlier_period_and_withdrawn_original(cfg, tm
     def save(key, time, groups):
         publication = {'id': key, 'task_id': key, 'check_id': key, 'business_date': '2026-11-04',
                        'created_at': time, 'actor': 'admin1', 'previous_id': None,
-                       'status': 'published', 'manifest': {}}
+                       'status': 'published', 'manifest': {'runtime_provider': 'codex'}}
         tickets = [_baseline_ticket(row, '2026-11-04') | {'published_at': time} for row in groups]
+        source = {'business_date': '2026-11-04', 'as_of': time, 'football': [], 'basketball': [],
+                  **{s + '_meta': {'captured_at': time, 'source_update': time} for s in ('football', 'basketball')}}
+        baseline = freeze_baseline(source, publication['manifest'], time)
+        baseline['tickets'] = [_baseline_ticket(row, '2026-11-04') for row in groups]
+        baseline['content_sha256'] = fingerprint({k: v for k, v in baseline.items() if k != 'content_sha256'})
+        publication['baseline_sha256'] = baseline['content_sha256']
         store.promote(publication, tickets)
         folder = root / 'runs' / '2026-11-04' / key
         folder.mkdir(parents=True)
         (folder / 'tickets.json').write_text(json.dumps(tickets))
-        (folder / 'audit.json').write_text(json.dumps({'source': {
-            'as_of': time, 'football': [], 'basketball': [], 'fixture_groups': groups}}))
+        (folder / 'audit.json').write_text(json.dumps({'source': source, 'source_sha256': fingerprint(source),
+                                                      'manifest': publication['manifest']}))
+        (folder / 'baseline.json').write_text(json.dumps(baseline))
 
     early = group('足球早中场①', '001', '2026-11-04 18:00')
     late = group('足球晚场②', '003', '2026-11-05 02:00')
     save('publication-early', '2026-11-04T12:00:00+08:00', [early])
     save('publication-late', '2026-11-04T20:00:00+08:00', [late])
     store.withdraw('publication-late', 'admin1', '保留原始统计', moment('2026-11-04T21:00:00+08:00'))
-    monkeypatch.setattr('foot_web.services.evaluation.build_bundle', lambda source, *a: {'groups': source['fixture_groups']})
     report = Evaluation(config, None, store).paired_comparison()
     assert report['matched_periods'] == report['baseline_available'] == report['ai_available'] == 2
     assert {row['period'] for row in report['rows']} == {'足球早中场①', '足球晚场②'}

@@ -73,7 +73,8 @@ def moment(value):
 def match_key(match):
     # Prefer stable official identity; retain deterministic fallback for legacy fixtures.
     if match.get('official_id'):
-        return fingerprint({'sport': match.get('sport'), 'official_id': str(match['official_id'])})[:24]
+        return fingerprint({key: match.get(key) for key in
+                            ('sport', 'official_id', 'business_date', 'num', 'home', 'away', 'kickoff')})[:24]
     return fingerprint({key: match[key] for key in ('sport', 'business_date', 'num', 'home', 'away', 'kickoff')})[:24]
 
 
