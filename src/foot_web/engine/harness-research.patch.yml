@@ -1,4 +1,11 @@
 # Local one-shot Harness overlay. Never change user's profile/global credentials.
+# User authorized resolving existing stored credential through the official seam.
+- id: credentials
+  disabled: false
+- id: agent-default-model
+  config:
+    provider: pixmoving
+    model: gpt-6.1-sol
 - id: sandbox-policy
   config:
     mode: read-only

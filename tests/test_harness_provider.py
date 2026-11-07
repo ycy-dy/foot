@@ -14,6 +14,16 @@ def test_harness_command_has_only_official_headless_and_project_patch(tmp_path, 
     assert (tmp_path / 'harness-no-web.patch.yml').read_text() == '- id: tool-web\n  disabled: true\n'
 
 
+def test_project_model_override_and_credential_service_have_no_secret_values():
+    import yaml
+    patch = yaml.safe_load(Path(providers.__file__).with_name('harness-research.patch.yml').read_text())
+    entries = {row['id']: row for row in patch}
+    assert entries['agent-default-model']['config'] == {'provider': 'pixmoving', 'model': 'gpt-6.1-sol'}
+    assert entries['credentials']['disabled'] is False
+    assert 'apiKey' not in entries['agent-default-model']['config']
+    assert entries['tool-bash']['disabled'] and entries['tool-fs']['disabled']
+
+
 def test_harness_final_event_lossless_and_no_thinking_in_logs():
     events = []
     stream = CLIEvents('harness', lambda k, m: events.append((k, m)))

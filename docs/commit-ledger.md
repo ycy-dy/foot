@@ -130,5 +130,13 @@
 - **范围**：dsh headless正式stdin/JSON adapter、项目只读web工具patch/no-tools整理、harness日志与最终工件验证、运行时单harness路由/无旧CLI回退、旧证据复用/manifest拒绝、页面与测试/配置/政策文案迁移；patch纳入package-data。
 - **验证**：真实no-tools Harness JSON返回通过，真实web_search被调用但headless缺搜索API密钥、url null，明确未开通联网；不复制当前GUI凭证不假定同模型。完整回归/部署见[021验证](../specs/021-harness-provider/verification.md)。
 - **安全**：禁用本地文件/shell/MCP相关工具/子代理/工作流/技能/插件，thinking不公开；不改原票/旧运行工件、不推备份分支。没有真实新比赛推荐或发送。
-- **提交定位**：`feat: route analysis exclusively through DeepSeek Harness [C20261107-014]`，Refs #11；目标origin/main，push由Issue及最终答复核验。
+- **同步结果**：8eda872已推送并核验远程。
+
+## C20261107-015 · pixmoving项目模型与安全凭据复用
+
+- **关联**：[Issue #12](https://github.com/ycy-dy/foot/issues/12)、[规格022](../specs/022-pixmoving-model/spec.md)。
+- **授权/范围**：用户选pixmoving/gpt-6.1-sol且授权项目headless通过官方credentials内部解析已保存引用；仅patch改模型/启credentials，不改全局默认/凭据，不使用聊天明文。patch纳入manifest代码hash，变更失效旧审核。
+- **验证**：真实无工具小JSON ok；全量352 passed，manifest补充后专项/部署见[022验证](../specs/022-pixmoving-model/verification.md)。搜索授权独立不冒报联网，未发赛事/聊天数据验证。
+- **安全提醒**：聊天中出现的凭据不存入代码、Issue、台账或命令，建议提供方撤销轮换；任何轮换由用户官方凭据界面处理。
+- **提交定位**：`feat: select pixmoving model with stored credentials [C20261107-015]`，Refs #12；提交后push origin/main并核验，私有环境和运行数据不入Git。
 

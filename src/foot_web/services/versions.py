@@ -36,7 +36,7 @@ def rules_manifest(project_dir):
     hashes = {name: hashlib.sha256(text.encode()).hexdigest() for name, text in texts.items()}
     package = Path(__file__).resolve().parents[1]
     code = {str(path.relative_to(package)): hashlib.sha256(path.read_bytes()).hexdigest()
-            for path in sorted(package.rglob('*.py'))}
+            for path in sorted([*package.rglob('*.py'), *package.rglob('*.patch.yml')])}
     manifest = {
         'workflow_version': WORKFLOW_VERSION, 'spec_revision': config['spec_revision'],
         'runtime_provider': 'harness',
