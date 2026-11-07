@@ -5,13 +5,19 @@ from .versions import rules_manifest, same_version
 
 
 def latest_match_analysis(tasks, match, config, as_of):
+    if not match.get('business_date'):
+        return None
     key = match_key(match)
     with tasks.store.connect() as db:
         row = db.execute('''SELECT task_id FROM research_matches
             WHERE match_key=? ORDER BY updated_at DESC, rowid DESC LIMIT 1''', (key,)).fetchone()
     if row is None:
         return None
-    item = next((r for r in tasks.research.items(row['task_id']) if r['match_key'] == key), None)
+    item = next((r for r in tasks.research.items(row['task_id']) if r['match_key'] == key
+                 and r['match'].get('official_id', match.get('official_id')) == match.get('official_id')
+                 and r['match'].get('home') == match.get('home')
+                 and r['match'].get('away') == match.get('away')
+                 and r['match'].get('business_date') == match.get('business_date')), None)
     if item is None:
         return None
     workflow = tasks.research.workflow(item['task_id'])
