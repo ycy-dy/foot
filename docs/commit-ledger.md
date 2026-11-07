@@ -108,5 +108,12 @@
 - **关联**：[Issue #9](https://github.com/ycy-dy/foot/issues/9)、[规格019](../specs/019-runtime-provider-repair/spec.md)。用户明确按方案修复，不自动巡检/扩权/安装host。
 - **范围**：Codex完整关闭code_mode系列隔离、stderr配置不兼容快速失败清理并本轮跳过；逐场每provider一次剩余预算内证据结构修复、脱敏原返回/attempt追踪，错误聚合提示；不造来源不降低70分。
 - **验证**：受限Codex30秒无赛事最小JSON实际成功；专项20 passed，完整回归/部署见[019验证](../specs/019-runtime-provider-repair/verification.md)。原任务自然partial后才部署，不覆盖原检查点。
-- **提交定位**：`fix: bounded evidence repair and codex mode compatibility [C20261107-011]`，Refs #9。提交后push origin/main，不含环境模板/生产台账/runs/var；真实长研究是否改善仍需后续实际返回，不冒报。
+- **同步结果**：3a764bd已推送核验；后续真实研究仍Code Mode失败/超时，最小无工具探测不覆盖工具路径，已如实在Issue #9记录并继续修复。
+
+## C20261107-012 · 有限网页研究与独立结构交付
+
+- **关联**：[Issue #9](https://github.com/ycy-dy/foot/issues/9)、[规格020](../specs/020-bounded-research/spec.md)。
+- **修复**：逐场排除工程AGENTS，专用Claude system prompt，有限3search/3fetch；工具call id去重；预留25%最多45s无工具AI整理公开证据，原schema验证才成功，未知仍不推荐；连续最终timeout两次停止保留。Codex native standalone_web_search在host/shell/MCP禁用下实测可用。
+- **验证部署**：全量327 passed/107.02s，两提供方有界真实公开搜索返回JSON/URL；无active后重启5020 PID64617。见[020验证](../specs/020-bounded-research/verification.md)。未重跑整日真实赛事，不冒报70达标或模型性能。
+- **提交定位**：`fix: bound web research and isolate evidence structuring [C20261107-012]`，Refs #9；提交后push main，不含环境/运行工件，不改旧原票。
 

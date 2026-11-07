@@ -64,7 +64,7 @@ def test_repair_same_provider_preserves_raw_failures_and_real_sources(run_round)
     assert task['status'] == 'succeeded'
     assert [c[0] for c in calls] == ['claude'] * 4
     for item in items:
-        assert [a['stage'] for a in item['attempts']] == ['research', 'evidence_repair']
+        assert [a['stage'] for a in item['attempts']] == ['research', 'evidence_structure']
         assert [a['status'] for a in item['attempts']] == ['failed', 'succeeded']
         assert item['payload']['sources'][0]['id'] == 'real'
         assert item['payload']['dimensions'][0]['status'] == 'unknown'
@@ -74,7 +74,7 @@ def test_repair_same_provider_preserves_raw_failures_and_real_sources(run_round)
         assert raw[1]['dimensions'][0]['status'] == 'unknown'
         for attempt in item['attempts']:
             assert json.loads((checkpoint / attempt['attempt_artifact']).read_text()) == attempt
-    assert all(calls[i + 1][2] <= calls[i][2] for i in (0, 2))
+    assert all(calls[i + 1][2] <= calls[i][2] / .75 + 1 for i in (0, 2))  # collection reserves 25% of original deadline
 
 
 def test_only_one_repair_then_codex_fallback_without_python_mutation(run_round):
@@ -202,7 +202,7 @@ def test_repair_uses_only_remaining_original_budget(run_round, monkeypatch, limi
         return payload_for(match)
 
     _, _, _ = run(generate)
-    assert calls[:2] == [('claude', 60, False), ('claude', 35, True)]
+    assert calls[:2] == [('claude', 45, False), ('claude', 35, True)]
 
 
 def test_insufficient_remaining_budget_skips_repair(run_round, monkeypatch):

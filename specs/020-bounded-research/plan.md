@@ -1,0 +1,5 @@
+# 计划
+
+研究任务全输入仍冻结作审计，但逐场只传policy/scoring，不传AGENTS开发行为。Claude专用system prompt不加载编程/技能。provider支持_tools_disabled与_research_tool_budget，执行层去重工具call id后计数；有限公开网页结果进入public_output，只作下阶段不可信数据，不输出私有推理。
+
+原有效返回直接验证，异常或timeout/tool_budget且有公开证据时一次无工具整理，预留预算，模型返回经原schema/业务验证才成功，无来源保持unknown。连续最终timeout两次partial熔断避免全天空耗。Codex仅启用native standalone_web_search，继续禁host/code/shell/MCP。实测公开小查询，不重新运行24场。

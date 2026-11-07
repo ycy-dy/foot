@@ -14,6 +14,8 @@ class CLIEvents:
         self.text = ''
         self.partial_text = False
         self.completed = False
+        self.tool_ids = set()
+        self.public_evidence = []
 
     def feed(self, channel, text):
         self.pending[channel] += text
@@ -83,6 +85,8 @@ class CLIEvents:
             elif data.get('type') == 'content_block_start':
                 block = data.get('content_block') or {}
                 if block.get('type') == 'tool_use' and block.get('name') in ('WebSearch', 'WebFetch'):
+                    if block.get('id'):
+                        self.tool_ids.add(block['id'])
                     self.emit('tool', str(block['name']) + ' · 开始网页研究')
         elif kind == 'assistant':
             self.flush_text()
@@ -95,12 +99,22 @@ class CLIEvents:
                     tool = block.get('name')
                     data = block.get('input') or {}
                     if tool in ('WebSearch', 'WebFetch'):
-                        self.emit('tool', tool + ' · ' + str(data.get('query') or data.get('url') or '开始网页研究'))
+                        if block.get('id') not in self.tool_ids:
+                            if block.get('id'):
+                                self.tool_ids.add(block['id'])
+                            self.emit('tool', tool + ' · ' + str(data.get('query') or data.get('url') or '开始网页研究'))
                     elif tool == 'StructuredOutput':
                         self.emit('status', '正在生成结构化分析稿')
             self.partial_text = False
         elif kind == 'user':
             content = (event.get('message') or {}).get('content', [])
+            if isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and block.get('type') == 'tool_result':
+                        # Public web results only; never reasoning events or credentials.
+                        text = json.dumps(block.get('content', ''), ensure_ascii=False)
+                        if sum(map(len, self.public_evidence)) + len(text) <= 500000:
+                            self.public_evidence.append(text)
             if isinstance(content, list) and any(isinstance(b, dict) and b.get('type') == 'tool_result' for b in content):
                 self.emit('tool', '网页研究工具已返回结果')
         elif kind == 'result':

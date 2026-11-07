@@ -19,9 +19,10 @@ MAX_OUTPUT = 2_000_000
 
 
 class ProviderError(RuntimeError):
-    def __init__(self, code, message):
+    def __init__(self, code, message, public_output=''):
         super().__init__(message)
         self.code = code
+        self.public_output = public_output
 
 
 def executable(name, configured=''):
@@ -40,7 +41,9 @@ def command(provider, workspace, config):
     if provider == 'claude':
         return prefix + ['-p', '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
                          '--json-schema', json.dumps(config.get('_response_schema') or SCHEMA),
-                         '--tools', 'WebSearch,WebFetch', '--allowedTools', 'WebSearch,WebFetch',
+                         '--system-prompt', '你是受限只读事实研究与JSON整理助手，不是编程代理。不加载开发技能。未知如实记录，不无限补查。',
+                         '--tools', '' if config.get('_tools_disabled') else 'WebSearch,WebFetch',
+                         '--allowedTools', '' if config.get('_tools_disabled') else 'WebSearch,WebFetch',
                          '--permission-mode', 'dontAsk', '--permission-prompts', 'none',
                          '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
                          '--setting-sources', 'user', '--settings', '{"disableAllHooks":true}',
@@ -67,7 +70,8 @@ def command(provider, workspace, config):
                         json.dumps(name) + '=' + disabled for name in entries) + '}'])
         except (OSError, ValueError):
             raise ProviderError('configuration', '无法隔离本机MCP配置，未启动研究CLI') from None
-    return prefix + ['--search', '--ask-for-approval', 'never', '-c', 'mcp_servers={}', *flags,
+    search_flags = ['-c', 'web_search="disabled"'] if config.get('_tools_disabled') else ['--search', '--enable', 'standalone_web_search']
+    return prefix + [*search_flags, '--ask-for-approval', 'never', '-c', 'mcp_servers={}', *flags,
                      '-c', 'project_doc_max_bytes=0', 'exec', '--sandbox', 'read-only',
                      '--skip-git-repo-check', '--ephemeral', '--color', 'never', '--json',
                      '--output-schema', str(workspace / 'schema.json'),
@@ -141,7 +145,24 @@ def generate(provider, prompt, workspace, config, on_event=None, schema=None, ca
     timeout = max(10, min(3600, int(config.get('FOOT_ANALYSIS_TIMEOUT') or 900)))
     secrets = secret_values(config, os.environ)
 
+    public_parts = []
+    tool_counts = {'search': 0, 'fetch': 0}
+    tool_budget = config.get('_research_tool_budget') or {}
+
     def emit(kind, message):
+        safe_public = redact(message, secrets, limit=None)
+        if kind == 'output' and safe_public:
+            if sum(len(x.encode('utf-8')) for x in public_parts) + len(safe_public.encode('utf-8')) > MAX_OUTPUT:
+                raise ProviderError('invalid_output', '公开研究输出超过大小限制；未截断证据')
+            public_parts.append(safe_public)
+        if kind == 'tool':
+            category = ('search' if ('WebSearch' in message or '网页检索开始' in message)
+                        else 'fetch' if 'WebFetch' in message else None)
+            if category:
+                tool_counts[category] += 1
+                if category in tool_budget and tool_counts[category] > tool_budget[category]:
+                    raise ProviderError('tool_budget', '达到本场网页检索预算，停止补查并转入无工具整理',
+                                        redact('\n'.join(public_parts + stream.public_evidence), secrets, limit=None))
         if on_event:
             safe = redact(message, secrets)
             if safe:
@@ -226,7 +247,7 @@ def generate(provider, prompt, workspace, config, on_event=None, schema=None, ca
             drain()
             stream.finish()
             emit('error', f'达到 {timeout} 秒时限，已停止 CLI 进程组')
-            raise ProviderError('timeout', '本次 CLI 分析超时') from None
+            raise ProviderError('timeout', '本次 CLI 分析超时', redact('\n'.join(public_parts + stream.public_evidence), secrets, limit=None)) from None
         except BaseException:
             _stop_process_group(process)
             raise

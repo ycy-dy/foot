@@ -10,7 +10,8 @@ def test_code_modes_all_disabled_not_host_enabled(tmp_path, monkeypatch):
     args = providers.command('codex', tmp_path, {})
     for feature in ('code_mode', 'code_mode_only', 'code_mode_prewarm', 'code_mode_host', 'shell_tool', 'unified_exec'):
         assert any(a == '--disable' and args[i+1] == feature for i, a in enumerate(args[:-1]))
-    assert '--enable' not in args and 'read-only' in args
+    assert args[args.index('--enable') + 1] == 'standalone_web_search' and 'read-only' in args
+    assert 'code_mode_host' not in [args[i+1] for i,x in enumerate(args[:-1]) if x == '--enable']
 
 
 def test_configuration_error_classification():
