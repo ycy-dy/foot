@@ -35,3 +35,5 @@
 ## 交接
 
 本轮代码和依赖的原有未提交claim schema/评分门禁/正向fixture一并收口；不纳入.env.example、生产ledger/runs/var或无关数据改动。提交关联#14/#8，推送当前main到origin/main，远程结果另行核验。
+
+结果补记：代码提交`63dea69237ae26e3338acdfc46c65335e756b86b`已正常推送，同时补推此前4772cb2。首次网络连接超时，限时HTTP/1.1重试成功；ls-remote与GitHub API返回同一哈希。隔离5021与独立headless Chrome已停止，正式5020继续运行。

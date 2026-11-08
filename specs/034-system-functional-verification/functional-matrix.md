@@ -37,12 +37,12 @@
 | 登录/拒绝 | 钉钉入口、回调、白名单、同源选择、拒绝与会话过期 | auth/security_headers；真实企业授权不代操作 |
 | 首页 `/` | 业务日、重新分析、两处终止、复用checkbox、任务/台账/逐场链接 | recompute_ui/task_actions；新建与终止已点，终止toast已复验；日期/复用后端测试 |
 | 分析列表 `/analysis` | 任务链接、状态/提供方 | page_control_matrix/analysis；列表渲染与链接注册 |
-| 任务详情 | 新建、取消、继续、逐场进度、日志折叠、全部/Codex/Harness历史/系统、搜索、跟随、最新、下载 | analysis_controls/logs/research_workflow；Codex过滤、无匹配搜索、跟随与下载已点；继续和最新自动/JS测试，非本轮逐状态点击 |
+| 任务详情 | 新建、取消、继续、逐场进度、日志折叠、全部/Codex/Harness历史/系统、搜索、跟随、最新、下载 | analysis_controls/logs/research_workflow；手机继续、Codex过滤、无匹配搜索、跟随与下载已点；最新自动/JS测试，非本轮逐状态点击 |
 | 逐场详情（足球/篮球） | 市场表、研究摘要、详情折叠、研究任务/完整证据链接 | match_analysis/pages；双队序/无研究/旧版/失败状态自动测试 |
 | 完整证据 | 23维、来源锚点、来源外链、选项意见折叠、实时凭据评分、返回 | research_workflow/match_analysis/provenance；页面渲染，外链不全部访问 |
 | 审核发布 | 刷新审核、工件/脚本折叠、确认checkbox、发布原生confirm、防重提交 | publications/analysis_controls；审核、勾选、confirm和发布已点，返回既有check版本幂等 |
 | 发布详情 | 版本变化折叠、原票报告、首发checkbox、临场复核、原因输入/撤销 | publications/monitoring；临场启动、取消、撤销已点，撤销后原文保留/按钮隐藏 |
-| 每日台账 | 日期查询、冻结原票/details/哈希、无票/撤销版本 | daily_ledger；双视口原票局部滚动已复验，日期表单自动测试 |
+| 每日台账 | 日期查询、冻结原票/details/哈希、无票/撤销版本 | daily_ledger；双视口原票局部滚动及日期查询已实际复验 |
 | 历史推荐 | 日期/历史日期链接、复盘并更新、任务进度/成功刷新、原票与当前版本 | task_actions/reviews；选定业务日和不改原票集成测试；复盘列表启动已点 |
 | 台账查询 | 起止日、栏目、类别、状态、关键词、含替代、查询/重置、历史链接 | engine_ledger/page_control_matrix；关键词无结果查询和重置已点 |
 | 命中率 | 月份/全部chip、历史日期链接、分类/逐日统计 | ui/engine_ledger；浏览器渲染，筛选自动测试 |
