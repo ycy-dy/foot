@@ -9,14 +9,13 @@ from foot_web.engine import providers
 REPORT = '# 最终推荐汇总\n\n连通性测试，无赛事、无推荐、未审核未发布。'
 
 
-def test_historical_cli_structured_response_parsing_and_errors():
-    # Legacy artifacts remain parseable without enabling legacy runtime routing.
-    claude = json.dumps({'type': 'result', 'is_error': False, 'structured_output': {'report_markdown': REPORT}})
-    assert providers.parse_response('claude', claude).startswith('# 最终推荐汇总')
+def test_current_cli_structured_response_rejects_legacy_parsers():
     assert providers.parse_response('codex', json.dumps({'report_markdown': REPORT})).startswith('# 最终推荐汇总')
     with pytest.raises(providers.ProviderError) as error:
-        providers.parse_response('claude', json.dumps({'is_error': True, 'result': 'usage limit reached'}))
-    assert error.value.code == 'rate_limit'
+        providers.parse_response('claude', '{}')
+    assert error.value.code == 'configuration'
+    with pytest.raises(providers.ProviderError):
+        providers.parse_response('harness', '{"type":"final","text":"```json\\n{}\\n```"}', structured=True)
     for value in ('', '{}', 'not json', '{"report_markdown":"# 最终推荐汇总"}'):
         with pytest.raises(providers.ProviderError):
             providers.parse_response('codex', value)
@@ -59,6 +58,7 @@ def test_native_command_and_environment_are_restricted(tmp_path, monkeypatch):
     def launch(args, **kwargs):
         captured.update(args=args, **kwargs)
         kwargs['stdout'].write(json.dumps({'type': 'final', 'text': json.dumps({'report_markdown': REPORT})}).encode())
+        kwargs['stdout'].flush()
         return Process()
 
     monkeypatch.setattr(providers, 'executable', lambda name, *args: '/mock/' + name)

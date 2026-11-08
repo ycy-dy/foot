@@ -61,6 +61,12 @@ def decision_context(source, items, manifest, as_of):
     slim_options = {key: {field: leg[field] for field in
                          ('option_id', 'match_key', 'sport', 'num', 'market', 'L', 'label', 'options', 'p_mkt', 'evidence_confidence')}
                     for key, leg in options.items()}
+    # Full source evidence remains below; repeating every score breakdown for
+    # each market alternative can exceed the decision input bound by itself.
+    for option in slim_options.values():
+        score = option['evidence_confidence']
+        option['evidence_confidence'] = {key: score[key] for key in
+                                        ('version', 'eligible', 'evidence_confidence')}
     matches = {item['match_key']: {key: item['match'][key] for key in
                                   ('sport', 'num', 'business_date', 'kickoff', 'period', 'league', 'home', 'away')}
                for item in items}

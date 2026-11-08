@@ -3,16 +3,11 @@ from foot_web.engine.logs import CLIEvents
 from foot_web.engine.providers import command
 
 
-def test_historical_claude_parser_streaming_and_complete_tool_events_count_once():
-    # Read-only historical event parsing; never execute a legacy provider.
-    events = []
-    stream = CLIEvents('claude', lambda kind, text: events.append((kind, text)))
-    block = {'type': 'tool_use', 'id': 'call-1', 'name': 'WebSearch', 'input': {'query': 'public query'}}
-    stream.claude({'type': 'stream_event', 'event': {'type': 'content_block_start', 'content_block': block}})
-    stream.claude({'type': 'assistant', 'message': {'content': [block]}})
-    assert sum(kind == 'tool' for kind, _ in events) == 1
-    stream.claude({'type': 'user', 'message': {'content': [{'type': 'tool_result', 'content': 'public result URL'}]}})
-    assert stream.public_evidence == [json.dumps('public result URL')]
+def test_removed_provider_cannot_enter_event_parser():
+    import pytest
+    from foot_web.engine.logs import CodexToolEventError
+    with pytest.raises(CodexToolEventError):
+        CLIEvents('claude', lambda *a: None)
 
 
 def test_no_tools_stage_and_native_search_are_explicit(tmp_path, monkeypatch):

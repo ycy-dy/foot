@@ -184,7 +184,7 @@ def run_workflow(config, task_id, prepare, generator, fetcher=None, as_of=None):
                         raise
                     if timeout_stopped:
                         break
-                    if code in ('authentication', 'unavailable', 'rate_limit', 'configuration'):
+                    if code in ('authentication', 'unavailable', 'rate_limit', 'configuration', 'search_unavailable'):
                         unavailable.add(provider)
                         log(provider, 'warning', '本轮后续比赛跳过该不可用提供方')
                     continue
@@ -278,6 +278,9 @@ def run_workflow(config, task_id, prepare, generator, fetcher=None, as_of=None):
         finish('succeeded', '逐场研究与分析草稿已生成，待审核，尚未发布')
         store.event('analysis_completed', task['requested_by'], detail={'task_id': task_id, 'matches': progress['completed']})
     except ProviderError as exc:
+        if exc.code == 'search_unavailable':
+            attempts.append({'provider': selected_provider, 'status': 'failed',
+                             'stage': 'search_readiness', 'code': exc.code})
         log('system', 'warning' if exc.code == 'cancelled' else 'error', str(exc))
         finish('cancelled' if exc.code == 'cancelled' else
                'partial' if research.progress(task_id)['completed'] else 'failed', str(exc))

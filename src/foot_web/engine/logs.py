@@ -2,7 +2,7 @@
 import json
 import re
 
-from ..core.privacy import ANSI, ASSIGNMENT, SENSITIVE_KEY, redact, secret_values
+from ..core.privacy import ANSI, redact, secret_values
 
 
 class CodexToolEventError(RuntimeError):
@@ -11,14 +11,14 @@ class CodexToolEventError(RuntimeError):
 
 class CLIEvents:
     def __init__(self, provider, emit):
+        if provider not in {'codex', 'harness'}:
+            raise CodexToolEventError('不支持的运行协议，仅接受当前Codex或显式Harness协议')
         self.provider = provider
         self.emit = emit
         self.pending = {'stdout': '', 'stderr': ''}
         self.result = None
-        self.text = ''
-        self.partial_text = False
         self.completed = False
-        self.tool_ids = set()
+        self.terminal_error = None
         self.public_evidence = []
         # Codex emits snapshots of the same operation, not new calls. Keep
         # terminal records too, so late/duplicate snapshots cannot spend twice.
@@ -30,41 +30,35 @@ class CLIEvents:
             line, self.pending[channel] = self.pending[channel].split('\n', 1)
             self.line(channel, line)
         if len(self.pending[channel]) > 2_000_000:
-            self.pending[channel] = ''
-            self.emit('warning', '一条 CLI 事件超过大小限制，已略过')
-
-    def flush_text(self):
-        if self.text.strip():
-            self.public_text(self.text)
-        self.text = ''
+            raise CodexToolEventError('CLI事件超过大小限制，拒绝截断后继续解析')
 
     def finish(self):
         for channel, text in self.pending.items():
             if text.strip():
                 self.line(channel, text)
         self.pending = {'stdout': '', 'stderr': ''}
-        self.flush_text()
         if any(not record['tool'] for record in self.codex_tools.values()):
             raise CodexToolEventError('Codex 网页工具缺少 action 类型，拒绝无法核算的研究')
 
     def line(self, channel, line):
         if channel == 'stderr':
             clean = ANSI.sub('', line).strip()
+            if self.provider == 'codex' and clean.startswith('Code Mode is unavailable'):
+                self.emit('warning', clean)
+                return
             # JSON mode sends diagnostics here; never persist arbitrary prompt echoes.
             if re.match(r'^(?:\d{4}-\d\d-\d\d[T ][^\s]+\s+)?'
                         r'(?:WARN(?:ING)?\b|ERROR\b|Error:|error:|Reconnecting\b)', clean):
-                self.emit('warning' if re.search(r'\bWARN(?:ING)?\b', clean) else 'error', clean)
+                self.emit('warning', clean)
             return
         try:
             event = json.loads(line)
         except (ValueError, TypeError):
-            return
+            raise CodexToolEventError('CLI stdout不是有效JSONL事件，拒绝旧文本协议') from None
         if not isinstance(event, dict):
-            return
+            raise CodexToolEventError('CLI事件必须是JSON对象')
         if self.provider == 'harness':
             self.harness(event)
-        elif self.provider == 'claude':
-            self.claude(event)
         else:
             self.codex(event)
 
@@ -76,71 +70,6 @@ class CLIEvents:
         else:
             self.emit('output', text)
 
-    def claude(self, event):
-        kind = event.get('type')
-        if kind == 'system' and event.get('subtype') == 'init':
-            self.emit('status', 'Claude 会话已初始化 · 模型 ' + str(event.get('model', '待核')))
-        elif kind == 'system' and event.get('subtype') == 'api_retry':
-            attempt = event.get('attempt', '待核')
-            delay = event.get('retry_delay_ms')
-            self.emit('warning', f'Claude 上游请求正在重试 · 第 {attempt} 次'
-                      + (f' · 等待 {delay / 1000:g} 秒' if isinstance(delay, (int, float)) else ''))
-        elif kind == 'stream_event':
-            data = event.get('event') or {}
-            delta = data.get('delta') or {}
-            if data.get('type') == 'content_block_delta' and delta.get('type') == 'text_delta':
-                self.partial_text = True
-                self.text += delta.get('text', '')
-            elif data.get('type') in ('content_block_stop', 'message_stop'):
-                self.flush_text()
-            elif data.get('type') == 'content_block_start':
-                block = data.get('content_block') or {}
-                if block.get('type') == 'tool_use' and block.get('name') in ('WebSearch', 'WebFetch'):
-                    if block.get('id'):
-                        self.tool_ids.add(block['id'])
-                    self.emit('tool', str(block['name']) + ' · 开始网页研究')
-        elif kind == 'assistant':
-            self.flush_text()
-            for block in (event.get('message') or {}).get('content', []):
-                if not isinstance(block, dict):
-                    continue
-                if block.get('type') == 'text' and not self.partial_text:
-                    self.public_text(block.get('text'))
-                elif block.get('type') == 'tool_use':
-                    tool = block.get('name')
-                    data = block.get('input') or {}
-                    if tool in ('WebSearch', 'WebFetch'):
-                        if block.get('id') not in self.tool_ids:
-                            if block.get('id'):
-                                self.tool_ids.add(block['id'])
-                            self.emit('tool', tool + ' · ' + str(data.get('query') or data.get('url') or '开始网页研究'))
-                    elif tool == 'StructuredOutput':
-                        self.emit('status', '正在生成结构化分析稿')
-            self.partial_text = False
-        elif kind == 'user':
-            content = (event.get('message') or {}).get('content', [])
-            if isinstance(content, list):
-                for block in content:
-                    if isinstance(block, dict) and block.get('type') == 'tool_result':
-                        # Public web results only; never reasoning events or credentials.
-                        text = json.dumps(block.get('content', ''), ensure_ascii=False)
-                        if sum(map(len, self.public_evidence)) + len(text) <= 500000:
-                            self.public_evidence.append(text)
-            if isinstance(content, list) and any(isinstance(b, dict) and b.get('type') == 'tool_result' for b in content):
-                self.emit('tool', '网页研究工具已返回结果')
-        elif kind == 'result':
-            self.flush_text()
-            self.result = json.dumps(event, ensure_ascii=False)
-            if event.get('is_error') or str(event.get('subtype', '')).startswith('error'):
-                self.completed = False
-                detail = event.get('result') or '; '.join(str(e) for e in event.get('errors', []))
-                self.emit('error', str(detail) or 'Claude 返回执行错误')
-            else:
-                self.completed = True
-                self.emit('status', 'Claude 已返回最终结果')
-        elif kind == 'error':
-            self.emit('error', str(event.get('message') or 'Claude 返回错误'))
-
     def harness(self, event):
         kind = event.get('type')
         if kind == 'thinking':
@@ -151,7 +80,7 @@ class CLIEvents:
             self.public_text(event.get('text', ''))
         elif kind == 'tool_call':
             tool = event.get('tool', '')
-            if tool not in ('web_search', 'web_fetch', 'functions.web_search', 'functions.web_fetch'):
+            if tool not in ('web_search', 'web_fetch'):
                 raise RuntimeError('Harness暴露了研究白名单以外工具，拒绝继续')
             self.emit('tool', tool + ' · 开始只读网页研究')
         elif kind == 'tool_result':
@@ -165,7 +94,10 @@ class CLIEvents:
             self.completed = True
             self.emit('status', 'DeepSeek Harness 已返回最终结果，等待结构验证')
         elif kind == 'error':
+            self.terminal_error = str(event.get('message') or 'Harness执行失败')
             self.emit('error', str(event.get('message') or 'Harness执行失败'))
+        else:
+            raise CodexToolEventError('未知Harness事件，拒绝旧协议或混合协议')
 
     def codex_web_tool(self, kind, item):
         """Charge one operation per nonempty id; completion never charges again.
@@ -184,8 +116,11 @@ class CLIEvents:
         if not isinstance(action, dict):
             raise CodexToolEventError('Codex 网页工具 action 无效，拒绝继续')
         action_type = action.get('type')
-        tools = {'search': 'WebSearch', 'query': 'WebSearch',
-                 'open_page': 'WebFetch', 'open': 'WebFetch', 'find': 'WebFetch'}
+        # Standalone web.run starts before its action is resolved by the CLI.
+        # Completion still requires an accountable, concrete web operation.
+        if action_type == 'other' and kind != 'item.completed':
+            action_type = None
+        tools = {'search': 'WebSearch', 'open_page': 'WebFetch', 'find_in_page': 'WebFetch'}
         tool = tools.get(action_type) if isinstance(action_type, str) else None
         if action_type is not None and tool is None:
             raise CodexToolEventError('Codex 网页工具 action 不在只读研究白名单，拒绝继续')
@@ -220,15 +155,21 @@ class CLIEvents:
                                'dynamic_tool_call', 'tool_call'):
                 raise CodexToolEventError('Codex 暴露了研究白名单以外工具，拒绝继续')
             elif item_type == 'error':
-                self.emit('error', str(item.get('message') or 'Codex 返回错误'))
+                message = str(item.get('message') or 'Codex 返回错误')
+                self.emit('warning', message)
+            elif item_type not in ('reasoning', 'agent_message', 'todo_list'):
+                raise CodexToolEventError('未知Codex item类型，拒绝旧协议或无法核算的工具')
             # Reasoning items and arbitrary tool arguments are intentionally omitted.
         elif kind in ('error', 'turn.failed'):
-            self.completed = False
             detail = event.get('error') or event.get('message') or 'Codex 返回执行错误'
             if isinstance(detail, dict):
                 detail = detail.get('message') or 'Codex 返回执行错误'
+            self.completed = False
+            self.terminal_error = str(detail)
             self.emit('error', str(detail))
         elif kind == 'turn.completed':
-            self.completed = True
+            self.completed = self.terminal_error is None
             usage = event.get('usage') or {}
             self.emit('status', '本轮已结束 · 输出 ' + str(usage.get('output_tokens', '待核')) + ' tokens')
+        else:
+            raise CodexToolEventError('未知Codex事件类型，拒绝旧协议或混合协议')

@@ -117,7 +117,6 @@ def test_harness_stream_keeps_public_evidence_and_never_private_reasoning():
     for event in [
         {'type': 'session', 'sessionId': 'fixture'},
         {'type': 'thinking', 'text': 'PRIVATE_REASONING'},
-        {'type': 'user', 'text': 'PRIVATE_PROMPT'},
         {'type': 'text', 'text': '正在核对公开伤停来源'},
         {'type': 'tool_call', 'tool': 'web_search'},
         {'type': 'tool_result', 'result': '公开来源链接'},
@@ -131,42 +130,28 @@ def test_harness_stream_keeps_public_evidence_and_never_private_reasoning():
     assert stream.public_evidence == ['公开来源链接']
 
 
-# Historical parser compatibility only: these fixtures never execute legacy CLIs.
-@pytest.mark.parametrize('provider', ['claude', 'codex'])
-def test_private_blocks_and_prompt_are_not_logged_but_public_events_are(tmp_path, provider):
+def test_private_blocks_are_not_logged_and_old_event_types_are_rejected(tmp_path):
     from foot_web.engine.logs import CLIEvents, redact
 
     seen = []
-    stream = CLIEvents(provider, lambda kind, text: seen.append((kind, redact(text, ['test-secret-value']))))
-    if provider == 'claude':
-        events = [
-            {'type': 'system', 'subtype': 'init', 'model': 'fixture'},
-            {'type': 'assistant', 'message': {'content': [
-                {'type': 'thinking', 'thinking': 'PRIVATE_REASONING'},
-                {'type': 'text', 'text': '正在核对公开伤停来源'},
-                {'type': 'tool_use', 'name': 'WebSearch', 'input': {'query': 'injury update'}},
-            ]}},
-            {'type': 'stream_event', 'event': {'type': 'content_block_delta',
-                                             'delta': {'type': 'thinking_delta', 'thinking': 'PRIVATE_DELTA'}}},
-            {'type': 'user', 'message': {'content': 'PRIVATE_PROMPT'}},
-            {'type': 'result', 'is_error': True, 'result': 'Error: api_key=test-secret-value'},
-        ]
-    else:
-        events = [
-            {'type': 'thread.started', 'thread_id': 'fixture'},
-            {'type': 'item.completed', 'item': {'type': 'reasoning', 'text': 'PRIVATE_REASONING'}},
-            {'type': 'item.completed', 'item': {'type': 'agent_message', 'text': '正在核对公开伤停来源'}},
-            {'type': 'item.completed', 'item': {'id': 'web-fixture-1', 'type': 'web_search', 'action': {'type': 'search', 'query': 'injury update'}}},
-            {'type': 'user', 'text': 'PRIVATE_PROMPT'},
-            {'type': 'error', 'message': 'Error: api_key=test-secret-value'},
-        ]
+    stream = CLIEvents('codex', lambda kind, text: seen.append((kind, redact(text, ['test-secret-value']))))
+    events = [
+        {'type': 'thread.started', 'thread_id': 'fixture'},
+        {'type': 'item.completed', 'item': {'type': 'reasoning', 'text': 'PRIVATE_REASONING'}},
+        {'type': 'item.completed', 'item': {'type': 'agent_message', 'text': '正在核对公开伤停来源'}},
+        {'type': 'item.completed', 'item': {'id': 'web-fixture-1', 'type': 'web_search', 'action': {'type': 'search', 'query': 'injury update'}}},
+        {'type': 'error', 'message': 'Error: api_key=test-secret-value'},
+    ]
     for value in events:
         stream.feed('stdout', json.dumps(value, ensure_ascii=False) + '\n')
     stream.feed('stderr', 'Error: Authorization: Bearer another-secret-value\n')
     stream.finish()
     text = json.dumps(seen, ensure_ascii=False)
     assert 'PRIVATE_' not in text and 'test-secret-value' not in text and 'another-secret-value' not in text
-    assert '公开伤停' in text and ('WebSearch' in text if provider == 'codex' else 'injury update' in text) and '[REDACTED]' in text
+    assert '公开伤停' in text and 'WebSearch' in text and '[REDACTED]' in text
+    from foot_web.engine.logs import CodexToolEventError
+    with pytest.raises(CodexToolEventError):
+        stream.feed('stdout', '{"type":"user","text":"PRIVATE_PROMPT"}\n')
 
 
 def test_task_logs_are_incremental_persistent_and_admin_only(client, app, identity):

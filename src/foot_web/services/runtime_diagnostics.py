@@ -2,7 +2,8 @@
 from collections import Counter
 
 HINTS = {
-    'configuration': '提供方隔离配置不兼容，本轮跳过；核对Harness profile/工具授权，不自动扩权或回退旧CLI。',
+    'configuration': '当前提供方配置或CLI协议不兼容；核对本机版本，不自动启用宿主、扩权或切换提供方。',
+    'search_unavailable': '公开资料采集失败或无可定位来源，本轮停止；不是比赛证据评分失败，不生成空证据报告。',
     'invalid_output': 'AI返回未满足证据契约；仅允许一次预算内结构修复，不降低来源门槛。',
     'timeout': '单次预算超时，已清理进程；可保留检查点，不能把存活当研究成功。',
     'authentication': 'CLI认证不可用，请本人检查授权；不索取Token。',

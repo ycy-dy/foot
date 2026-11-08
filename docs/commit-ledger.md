@@ -126,7 +126,7 @@
 
 ## C20261107-014 · DeepSeek Harness唯一AI执行
 
-- **关联**：[Issue #11](https://github.com/ycy-dy/foot/issues/11)、[规格021](../specs/021-harness-provider/spec.md)。
+- **关联**：原Issue #11（2026-11-08按#15清理重复入口）；[规格021](../specs/021-harness-provider/spec.md)保留实现追溯。
 - **范围**：dsh headless正式stdin/JSON adapter、项目只读web工具patch/no-tools整理、harness日志与最终工件验证、运行时单harness路由/无旧CLI回退、旧证据复用/manifest拒绝、页面与测试/配置/政策文案迁移；patch纳入package-data。
 - **验证**：真实no-tools Harness JSON返回通过，真实web_search被调用但headless缺搜索API密钥、url null，明确未开通联网；不复制当前GUI凭证不假定同模型。完整回归/部署见[021验证](../specs/021-harness-provider/verification.md)。
 - **安全**：禁用本地文件/shell/MCP相关工具/子代理/工作流/技能/插件，thinking不公开；不改原票/旧运行工件、不推备份分支。没有真实新比赛推荐或发送。
@@ -134,7 +134,7 @@
 
 ## C20261107-015 · pixmoving项目模型与安全凭据复用
 
-- **关联**：[Issue #12](https://github.com/ycy-dy/foot/issues/12)、[规格022](../specs/022-pixmoving-model/spec.md)。
+- **关联**：原Issue #12（2026-11-08按#15清理重复入口）；[规格022](../specs/022-pixmoving-model/spec.md)保留实现追溯。
 - **授权/范围**：用户选pixmoving/gpt-6.1-sol且授权项目headless通过官方credentials内部解析已保存引用；仅patch改模型/启credentials，不改全局默认/凭据，不使用聊天明文。patch纳入manifest代码hash，变更失效旧审核。
 - **验证**：真实无工具小JSON ok；全量352 passed，manifest补充后专项/部署见[022验证](../specs/022-pixmoving-model/verification.md)。搜索授权独立不冒报联网，未发赛事/聊天数据验证。
 - **安全提醒**：聊天中出现的凭据不存入代码、Issue、台账或命令，建议提供方撤销轮换；任何轮换由用户官方凭据界面处理。
@@ -149,7 +149,7 @@
 
 ## C20261107-017 · 搜索不可用时Codex CLI替代
 
-- **关联**：[Issue #11](https://github.com/ycy-dy/foot/issues/11)、[规格023](../specs/023-search-codex-fallback/spec.md)。
+- **关联**：原Issue #11（当前提供方/运行问题归#9）；[规格023](../specs/023-search-codex-fallback/spec.md)。
 - **范围**：用户授权Harness搜索无正式凭据时改用当前唯一Codex CLI；更新policy/runtime路由/工件版本门禁/测试迁移，保留Harness显式切换但不混合；修复codex响应工件复制和新版官方npm入口。
 - **验证**：Lead最终全量360 passed/104.52s；Codex0.167.0 native搜索实测返回官方URL但伴Code Mode host警告，禁host/shell/MCP未绕过；无active后服务PID23567健康。详见023验证。真实赛事、70分和盈利仍待新任务验收。
 - **同步结果**：d77a765已推送核验；Issue #11保持开放。
@@ -206,5 +206,15 @@
 - **范围**：readiness DB/policy只读探针、CSP nonce、安全Cookie opt-in、P0官方source/baseline/ID/时钟门禁、管理员证据receipt任务绑定、旧provider文档漂移修正、工具/快照完整回归。
 - **验证**：readiness/CSP/管理员receipt/claim专项及完整回归已通过；服务健康。剩余source真实性抓取、baseline选择偏差/CI、模型OOS、公网TLS/限流/metrics仍未完成。
 - **当前状态**：审计规划与多项P0完成，但不是国际顶流/预测盈利认证；后续规格024 claim强制新发布、025 schema drift、027模型就绪继续开放。
+
+## C20261108-031 · Codex最新协议与资料通路修复、Issue精简
+
+- **关联**：[Issue #9](https://github.com/ycy-dy/foot/issues/9)、[Issue #15](https://github.com/ycy-dy/foot/issues/15)、[规格033](../specs/033-codex-research-compat/spec.md)。
+- **范围**：删除旧Claude执行/事件/返回与旧动作别名/Markdown容错；当前Codex JSONL严格终态、工具预算/取消和未知协议拒绝。临时direct目录不启用host；公开Exa采集与Codex无工具研究明确分层、原始收据哈希保存。最终取舍禁工具，候选输入仅去重复评分明细不截断；补缺基准错误说明。
+- **真实验证**：当前CLI0.167.0，完整23维/2来源JSON校验通过，84.21秒；原网关alpha/search404保留，不冒称被修复。不是70分推荐、全日发布/复盘或盈利认证。
+- **测试/部署**：最终完整回归503 passed/152.25秒，临场/研究/决策专项31 passed；compileall和diff检查通过。无active后既有5020重启PID69183，healthz/readiness均通过。真实单场原始工件保留在runs，不提交。
+- **Issue清理**：#11/#12过时重复入口删除，必要限制迁入#9/本地表；#3已完成关闭；#4/#8/#9/#14按必要独立工作重写；安全/故障历史关闭保留。详情见[清理表](issue-triage-2026-11-08.md)。
+- **未纳入**：原有.env.example、证据门禁/人工复核未提交改动、生产台账及runs/var。无自动全天分析/发布/消息/投注。
+- **推送目标**：当前main→origin/main；不强推，不推旧备份。结果以远程引用和最终答复核验为准。
 
 

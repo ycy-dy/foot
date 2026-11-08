@@ -50,6 +50,7 @@ def test_valid_codex_decision_persists_actual_return_hashes(tmp_path):
     calls = []
     def generator(provider, *args, **kwargs):
         calls.append(provider)
+        assert args[2]['_tools_disabled'] is True
         return {'answer': 'Codex的离线模拟返回'}
     folder = tmp_path / 'valid-decision'
     result = decide({}, folder, 'input', {}, lambda value: value, generator=generator)

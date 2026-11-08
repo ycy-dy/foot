@@ -1,4 +1,4 @@
-"""Required, traceable AI decisions via the isolated DeepSeek Harness boundary."""
+"""Required, traceable decisions from frozen inputs via the current policy provider."""
 import hashlib
 import json
 import os
@@ -18,7 +18,7 @@ def sha(text):
 
 
 def decide(config, folder, prompt, schema, validate, *, generator=None, on_event=None, cancelled=None):
-    """No synthetic success: return only validated DeepSeek Harness output, or raise.
+    """No synthetic success: return only validated current-provider output, or raise.
 
     The directory belongs to a single immutable attempt group. A caller resuming
     must use a fresh group, never overwrite prior AI inputs/outputs.
@@ -53,7 +53,8 @@ def decide(config, folder, prompt, schema, validate, *, generator=None, on_event
             raise ProviderError('cancelled', '管理员已取消AI决策')
         emit(provider, 'status', '正在调用' + provider + '推理决策')
         try:
-            raw = (generator or generate)(provider, safe_prompt, folder, config, schema=schema,
+            raw = (generator or generate)(provider, safe_prompt, folder,
+                                          config | {'_tools_disabled': True}, schema=schema,
                                           on_event=lambda kind, text: emit(provider, kind, text),
                                           cancelled=cancelled)
             raw = clean(raw)

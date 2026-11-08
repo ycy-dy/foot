@@ -200,6 +200,8 @@ class PublicationService:
             errors.append('独立发布审核不可用')
         try:
             baseline = freeze_baseline(refreshed, current, now)
+            if baseline is None:
+                raise ValueError('没有冻结市场基准')
         except (ValueError, KeyError, TypeError):
             baseline = None
             errors.append('冻结市场基准不可用，不能发布或回算补造')

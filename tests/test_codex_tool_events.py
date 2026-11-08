@@ -23,8 +23,7 @@ def calls(events, tool):
 
 
 @pytest.mark.parametrize('action,tool', [
-    ('search', 'WebSearch'), ('query', 'WebSearch'),
-    ('open_page', 'WebFetch'), ('open', 'WebFetch'), ('find', 'WebFetch'),
+    ('search', 'WebSearch'), ('open_page', 'WebFetch'), ('find_in_page', 'WebFetch'),
 ])
 @pytest.mark.parametrize('order', [
     ['started', 'started', 'updated', 'updated', 'completed', 'completed'],
@@ -44,12 +43,26 @@ def test_each_id_charges_exactly_once_for_every_public_action(action, tool, orde
 def test_interleaved_ids_and_delayed_action_and_missing_completion_action():
     stream, events = capture()
     stream.codex(item(action=None))
-    stream.codex(item(item_id='web-2', action='open'))
+    stream.codex(item(item_id='web-2', action='open_page'))
     stream.codex(item('updated', action='search'))
     stream.codex(item('completed', action=None))
     stream.codex(item('completed', item_id='web-2', action=None))
     stream.finish()
     assert calls(events, 'WebSearch') == calls(events, 'WebFetch') == 1
+
+
+def test_standalone_pending_other_requires_concrete_completion():
+    stream, events = capture()
+    stream.codex(item(action='other'))
+    assert not events
+    stream.codex(item('updated', action='search'))
+    stream.codex(item('completed', action='search'))
+    stream.finish()
+    assert calls(events, 'WebSearch') == 1
+    stream, _ = capture()
+    stream.codex(item(action='other'))
+    with pytest.raises(CodexToolEventError):
+        stream.codex(item('completed', action='other'))
 
 
 @pytest.mark.parametrize('item_id', [None, '', ' ', 12, [], {}])
@@ -82,7 +95,7 @@ def test_same_id_cannot_change_budget_category():
     stream, events = capture()
     stream.codex(item())
     with pytest.raises(CodexToolEventError, match='冲突'):
-        stream.codex(item('updated', action='open'))
+        stream.codex(item('updated', action='open_page'))
     assert calls(events, 'WebSearch') == 1
     assert calls(events, 'WebFetch') == 0
 
@@ -121,7 +134,8 @@ def run_fake(tmp_path, monkeypatch, payloads, budget, *, cancelled=None, disable
             return None
 
     def launch(args, **kwargs):
-        kwargs['stdout'].write(('\n'.join(json.dumps(p) for p in payloads) + '\n').encode())
+        terminal = {'type': 'turn.completed', 'usage': {'output_tokens': 1}}
+        kwargs['stdout'].write(('\n'.join(json.dumps(p) for p in [*payloads, terminal]) + '\n').encode())
         kwargs['stdout'].flush()
         (tmp_path / 'codex' / 'response.json').write_text(json.dumps({'ok': True}))
         return Process()
@@ -146,8 +160,8 @@ def test_real_provider_budget_accepts_duplicate_updates_and_fetch(tmp_path, monk
     assert not killed
 
 
-@pytest.mark.parametrize('action,budget', [('search', {'search': 0}), ('open', {'fetch': 0}),
-                                          ('find', {'search': 100, 'fetch': 0})])
+@pytest.mark.parametrize('action,budget', [('search', {'search': 0}), ('open_page', {'fetch': 0}),
+                                          ('find_in_page', {'search': 100, 'fetch': 0})])
 def test_completed_first_enforces_correct_provider_budget(tmp_path, monkeypatch, action, budget):
     with pytest.raises(providers.ProviderError) as error:
         run_fake(tmp_path, monkeypatch, [item('completed', action=action)], budget)
@@ -188,3 +202,20 @@ def test_no_tools_stage_rejects_unexpected_web_operation(tmp_path, monkeypatch):
     with pytest.raises(providers.ProviderError) as error:
         run_fake(tmp_path, monkeypatch, [item()], {}, disabled=True)
     assert error.value.code == 'tool_protocol'
+
+
+@pytest.mark.parametrize('action', ['query', 'open', 'find'])
+def test_legacy_action_aliases_are_rejected(action):
+    stream, _ = capture()
+    with pytest.raises(CodexToolEventError):
+        stream.codex(item('completed', action=action))
+
+
+@pytest.mark.parametrize('event', [
+    {'type': 'session'}, {'type': 'assistant'}, {'type': 'result'},
+    {'type': 'item.completed', 'item': {'type': 'new_unknown_tool'}},
+])
+def test_old_or_unknown_protocol_never_silently_succeeds(event):
+    stream, _ = capture()
+    with pytest.raises(CodexToolEventError):
+        stream.codex(event)
