@@ -2,13 +2,13 @@
 {% block title %}复盘分析 · 竞彩分析推荐{% endblock %}
 {% block body %}
 <link rel="stylesheet" href="{{ url_for('static', filename='automation.css') }}?v=1">
-<div class="pagehead"><div><div class="eyebrow">POST-MATCH REVIEW</div><h1>复盘分析</h1><p class="muted">冻结原票 · 官方赛果 · DeepSeek Harness AI复盘 · 命中率台账</p></div>{% if user.role == 'admin' %}<a class="btn" href="/automation">设置定时复盘</a>{% endif %}</div>
+<div class="pagehead"><div><div class="eyebrow">POST-MATCH REVIEW</div><h1>复盘分析</h1><p class="muted">冻结原票 · 官方赛果 · 当前政策提供方 AI复盘 · 命中率台账</p></div>{% if user.role == 'admin' %}<a class="btn" href="/automation">设置定时复盘</a>{% endif %}</div>
 <div class="notice">只复盘已登记的标准化原票，不把未发布草稿当作最终推荐。终场、半场、盘口或身份缺失时保留待核；取消/走盘不自动算输。重复复盘保留版本，台账采用最新成功版本，不重复累计。实际投注金额与返还始终为 null。</div>
 {% if error %}<p class="err" role="alert">{{ error }}</p>{% endif %}
 {% if user.role == 'admin' %}
 {% if not policy_available %}<p id="review-policy-disabled" role="status" class="notice">{{ policy_disabled_reason }}</p>{% endif %}
 <form method="post" action="/reviews" class="review-request"><input type="hidden" name="csrf" value="{{ csrf }}"><label>复盘业务日<input type="date" required name="date" value="{{ default_date }}"></label><button type="submit" class="btn primary" {% if not policy_available %}disabled aria-describedby="review-policy-disabled"{% endif %}>开始复盘分析</button></form>
-<p class="small muted">默认前一日，可选其他已有原票的业务日。复盘统一调用 DeepSeek Harness；不可用时不回退旧CLI，AI分析失败不替换上一成功台账。不修改原推荐、不自动发布。若同类复盘正在运行，会跳转该任务。</p>
+<p class="small muted">默认前一日，可选其他已有原票的业务日。复盘由当前政策指定的唯一提供方执行，不隐式回退；AI分析失败不替换上一成功台账。不修改原推荐、不自动发布。若同类复盘正在运行，会跳转该任务。</p>
 {% else %}<p class="muted">只读模式：可查看复盘，不能发起任务或变更定时计划。</p>{% endif %}
 {% if dates %}<p class="small muted">台账业务日：{{ dates[:12]|join(' · ') }}</p>{% endif %}
 <h2>最近复盘任务</h2><div class="tablewrap"><table class="grid"><thead><tr><th>业务日</th><th>创建时间（北京）</th><th>状态</th><th>执行说明</th><th>详情</th></tr></thead><tbody>

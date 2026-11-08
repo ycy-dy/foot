@@ -82,3 +82,12 @@ def test_statistics_does_not_label_historical_rate_as_prediction(client, identit
     html = client.get('/stats?month=2026-10').get_data(as_text=True)
     assert '历史已结算命中率' in html
     assert 'title="市场基准命中概率' not in html
+
+
+def test_raw_frozen_documents_have_local_scroll_and_events_have_heading(client, identity):
+    login(client, identity)
+    css = client.get('/static/style.css').get_data(as_text=True)
+    assert 'main pre { max-width: 100%; overflow-x: auto;' in css
+    assert '<h1>审计日志</h1>' in client.get('/admin/events').get_data(as_text=True)
+    reviews = client.get('/reviews').get_data(as_text=True)
+    assert 'DeepSeek Harness' not in reviews and '当前政策提供方 AI复盘' in reviews

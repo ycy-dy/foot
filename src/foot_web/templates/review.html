@@ -2,7 +2,7 @@
 {% block title %}{{ task.business_date }} 复盘 · 竞彩分析推荐{% endblock %}
 {% block body %}
 <link rel="stylesheet" href="{{ url_for('static', filename='automation.css') }}?v=1">
-<div class="pagehead"><div><div class="eyebrow">POST-MATCH REVIEW</div><h1>{{ task.business_date }} 复盘分析</h1><p class="muted">{% if review_html and review_mode != 'ai_review' %}历史/纯结算版本 · 未保存AI分析，不追溯标记{% else %}DeepSeek Harness AI分析 · 确定性核算 · 不改原票{% endif %}</p></div><div class="actions"><a class="btn" href="/history?date={{ task.business_date }}">查看当天推荐结果</a><a class="btn" href="/reviews">返回复盘列表</a></div></div>
+<div class="pagehead"><div><div class="eyebrow">POST-MATCH REVIEW</div><h1>{{ task.business_date }} 复盘分析</h1><p class="muted">{% if review_html and review_mode != 'ai_review' %}历史/纯结算版本 · 未保存AI分析，不追溯标记{% else %}当前政策提供方 AI分析 · 确定性核算 · 不改原票{% endif %}</p></div><div class="actions"><a class="btn" href="/history?date={{ task.business_date }}">查看当天推荐结果</a><a class="btn" href="/reviews">返回复盘列表</a></div></div>
 <section class="job-status" data-review-status="{{ task.id }}" data-has-report="{{ 'true' if review_html else 'false' }}">
 <p><strong data-task-state>{{ task.status }}</strong> · <span data-task-message>{{ task.message }}</span></p><p class="small muted">创建 {{ task.created_at }} · 更新 <span data-task-updated>{{ task.updated_at }}</span></p>
 <p role="status" data-poll-state>{{ '后台正在执行，状态自动刷新；可安全离开页面。' if task.status in ['queued','running'] else '执行记录已保存' }}</p>

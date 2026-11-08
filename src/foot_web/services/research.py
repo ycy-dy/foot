@@ -41,6 +41,16 @@ EVIDENCE_SCHEMA = object_schema({
     'failure_paths': {'type': 'array', 'items': TEXT, 'minItems': 2, 'maxItems': 8},
     'quality_gaps': {'type': 'array', 'items': TEXT, 'maxItems': 30},
     'sources': {'type': 'array', 'items': SOURCE_SCHEMA, 'maxItems': 40},
+     'claims': {'type': 'array', 'maxItems': 4096, 'items': object_schema({
+         'claim_id': TEXT, 'claim': TEXT, 'source_id': TEXT, 'content_sha256': TEXT,
+         'quote': TEXT, 'locator': object_schema({'start': {'type': 'integer', 'minimum': 0},
+                                                   'end': {'type': 'integer', 'minimum': 1}}),
+         'source_type': {'type': 'string', 'enum': ['non_odds', 'odds']},
+         'support_status': {'type': 'string', 'enum': ['supports', 'contradicts', 'context', 'unknown']},
+         'verification_status': {'type': 'string', 'enum': ['unverified', 'agent_reported', 'manual_verified']},
+         'quote_receipt_id': {'type': ['string', 'null']}, 'manual_review_receipt_id': {'type': ['string', 'null']},
+         'match_id': TEXT, 'option_id': TEXT,
+         'dimension_id': {'type': 'integer', 'minimum': 1, 'maximum': 23}})},
     'dimensions': {'type': 'array', 'minItems': 23, 'maxItems': 23, 'items': object_schema({
         'id': {'type': 'integer', 'minimum': 1, 'maximum': 23},
         'status': {'type': 'string', 'enum': list(STATUSES)}, 'home': TEXT, 'away': TEXT,
@@ -52,6 +62,9 @@ EVIDENCE_SCHEMA = object_schema({
     'scenarios': {'type': 'array', 'maxItems': 12, 'items': object_schema({
         'name': TEXT, 'condition': TEXT, 'impact': TEXT, 'action': TEXT, 'source_ids': IDS})},
 })
+# Claims are optional for historical/negative research records during migration;
+# any new publishable recommendation still requires provenance receipts in scoring.
+EVIDENCE_SCHEMA['required'].remove('claims')
 VALIDATOR = Draft202012Validator(EVIDENCE_SCHEMA)
 
 
@@ -138,6 +151,14 @@ def validate_evidence(value, match, as_of):
     if len(source_map) != len(value['sources']):
         raise ValueError('来源编号重复')
     as_of = moment(as_of)
+    claims = value.get('claims') or []
+    claim_ids = set()
+    for claim in claims:
+        if claim['claim_id'] in claim_ids or claim['source_id'] not in source_map:
+            raise ValueError('claim重复或引用来源不存在')
+        claim_ids.add(claim['claim_id'])
+        if claim['dimension_id'] in (5, 8, 16, 20) and claim['source_type'] == 'non_odds':
+            raise ValueError('赔率维度claim必须标记为赔率来源')
     for source in value['sources']:
         if not safe_source_url(source['url']):
             raise ValueError('来源必须为无凭证的公开网页链接')

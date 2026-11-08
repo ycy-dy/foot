@@ -94,6 +94,7 @@ code { padding: 2px 5px; background: var(--surface-2); border-radius: 3px; }
 }
 main { max-width: 1600px; min-height: calc(100svh - 180px); margin: 0 auto; padding: 30px 32px 12px; overflow-wrap: anywhere; }
 main:focus { outline: none; }
+main pre { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
 footer { display: flex; align-items: flex-start; gap: 8px; max-width: 1600px; margin: 0 auto; color: var(--text-muted); font-size: 10px; padding: 22px 32px 28px; }
 footer .icon { width: 14px; height: 14px; margin-top: 2px; }
 
@@ -216,6 +217,12 @@ table.grid { width: 100%; border-collapse: collapse; font-size: 12px; }
 .filters label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: var(--text-secondary); }
 .filters input, .filters select { min-width: 130px; min-height: 36px; max-width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface-1); color: var(--text-primary); font-size: 12px; }
 .filters input[type="checkbox"] { min-width: 16px; min-height: 16px; accent-color: var(--accent); }
+.provenance-page form { display: grid; gap: 14px; max-width: 920px; }
+.provenance-page label { display: grid; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+.provenance-page input:not([type="hidden"]):not([type="checkbox"]), .provenance-page textarea { width: 100%; min-width: 0; padding: 9px 12px; border: 1px solid var(--line); border-radius: 5px; color: var(--text-primary); background: var(--surface-1); font: inherit; }
+.provenance-page textarea { resize: vertical; font-family: ui-monospace, Menlo, monospace; }
+.provenance-page label:has(input[type="checkbox"]) { display: flex; align-items: flex-start; }
+.provenance-page button { justify-self: start; }
 
 /* Reports and authentication. */
 .md { font-size: 13px; line-height: 1.9; }

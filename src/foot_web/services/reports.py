@@ -4,8 +4,6 @@ import json
 import sqlite3
 from pathlib import Path
 
-import markdown as md
-
 # 新产出写入 runs/<业务日>/<run_id>/；历史产出在 history/daily/
 DIR_PATTERNS = ('runs/*/*',)
 
@@ -26,8 +24,11 @@ def latest_report(project_dir, business_date=None, data_dir=None):
                         return None
                     from .drafts import render_draft
                     text = path.read_text(encoding='utf-8')
+                    summary = text.split('\n---\n', 1)[0]
+                    if summary.startswith('# 最终推荐汇总\n'):
+                        summary = summary.split('\n', 1)[1].lstrip()
                     return {'path': str(path.relative_to(root)), 'mtime': path.stat().st_mtime,
-                            'summary_html': render_draft(text.split('\n---\n', 1)[0]),
+                            'summary_html': render_draft(summary),
                             'full_html': render_draft(text), 'publication': publication}
     cands = []
     for pat in DIR_PATTERNS:
@@ -46,9 +47,10 @@ def latest_report(project_dir, business_date=None, data_dir=None):
     f = max(cands, key=lambda p: p.stat().st_mtime)
     text = f.read_text()
     summary = text.split('\n---\n', 1)[0] if text.lstrip().startswith('# 最终推荐汇总') else None
+    from .drafts import render_draft
     return {'path': str(f.relative_to(root)), 'mtime': f.stat().st_mtime,
-            'summary_html': md.markdown(summary, extensions=['tables']) if summary else None,
-            'full_html': md.markdown(text, extensions=['tables'])}
+            'summary_html': render_draft(summary) if summary else None,
+            'full_html': render_draft(text)}
 
 
 def safe_slug(value):

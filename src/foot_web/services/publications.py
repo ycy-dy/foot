@@ -134,6 +134,8 @@ class PublicationService:
             bundle = json.loads((path / 'recommendations.draft.json').read_text(encoding='utf-8'))
             envelope, context = load_decision(path)
             items = self.research.items(task_id)
+            from .evidence_reviews import runtime_items
+            items = runtime_items(self.config, task_id, items, bundle['as_of'])
             expected_context = decision_context(workflow['source'], items, workflow['manifest'], bundle['as_of'])
             if expected_context != context:
                 raise ValueError('AI候选上下文与冻结逐场证据不一致')
@@ -172,11 +174,20 @@ class PublicationService:
         from .evidence_confidence import passes
         from .evidence_confidence import score_evidence
         item_map = {item['match_key']: item for item in self.research.items(task_id)}
+        from .evidence_reviews import verify_leg
+        from ..core.config import id_set
+        verified_options = {}
         for leg in legs:
             item = item_map.get(leg.get('match_key'), {})
             recomputed = score_evidence(item.get('payload'), option_id=leg.get('option_id'), as_of=now)
             if not passes(leg.get('evidence_confidence')) or not passes(recomputed):
                 errors.append('证据可信度未可靠达到70分或证据已过期：' + str(leg.get('num', '待核')))
+            key = fingerprint({'option_id': leg.get('option_id'), 'sources': leg.get('sources')})
+            if key not in verified_options:
+                verified_options[key] = verify_leg(self.data, task_id, leg, now, item.get('payload'),
+                                                   id_set(self.config.get('FOOT_ADMIN_USER_IDS')))
+            if not verified_options[key]:
+                errors.append('来源人工复核磁盘凭据缺失、过期或身份不匹配：' + str(leg.get('num', '待核')))
         refreshed = fresh_input(self.fetcher, task['business_date'], now)
         # A fresh catalog may invalidate choices; it must never silently select replacement legs.
         from .rechecks import compare_quotes
@@ -206,7 +217,7 @@ class PublicationService:
             baseline = None
             errors.append('冻结市场基准不可用，不能发布或回算补造')
         checked = {'id': 'check-' + uuid.uuid4().hex, 'task_id': task_id, 'actor': actor,
-                   'created_at': now.isoformat(), 'passed': not errors, 'errors': errors, 'notes': notes,
+                   'created_at': now.isoformat(), 'passed': not errors and baseline is not None, 'errors': errors, 'notes': notes,
                    'script': script, 'bundle': bundle, 'source': copy.deepcopy(workflow.get('source', {})), 'selection_sha256': fingerprint(bundle),
                    'manifest': current, 'official_source': copy.deepcopy(refreshed),
                    'official_sha256': fingerprint(refreshed), 'baseline': baseline,

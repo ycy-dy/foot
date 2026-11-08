@@ -225,6 +225,8 @@ def run_workflow(config, task_id, prepare, generator, fetcher=None, as_of=None):
         research.phase(task_id, 'compose')
         log('system', 'status', '逐场研究完成，正在枚举合规候选并请求AI推荐决策')
         items = research.items(task_id)
+        from ..services.evidence_reviews import runtime_items
+        items = runtime_items(config, task_id, items, clock())
         context = decision_context(source, items, manifest, clock())
         context_path = folder / 'decision-context.json'
         if (folder / 'ai-decision.json').exists():

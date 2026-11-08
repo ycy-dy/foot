@@ -48,6 +48,20 @@ def audited_research_payload(match):
          'group_id': 'fixture-statistics', 'published_at': ANALYSIS_ASOF.isoformat(),
          'effective_at': ANALYSIS_ASOF.isoformat()},
     ]
+    # Synthetic identifiers only: no source content was fetched or reviewed.
+    payload['claims'] = [
+        {'claim_id': f'fixture-{source["id"]}', 'claim': '离线模拟证据，不是生产事实',
+         'source_id': source['id'], 'match_id': 'offline-fixture', 'option_id': option['option_id'],
+         'dimension_id': 1, 'content_sha256': 'offline-test-double-not-a-content-hash',
+         'quote': '离线模拟证据，不是生产事实', 'locator': {'start': 0, 'end': 1},
+         'source_type': 'non_odds', 'support_status': 'supports',
+         'verification_status': 'manual_verified',
+         'quote_receipt_id': f'fixture-quote-{source["id"]}',
+         'manual_review_receipt_id': f'fixture-manual-{source["id"]}'}
+        for source in payload['sources'] for option in payload['assessments']
+    ]
+    for index, claim in enumerate(payload['claims']):
+        claim['claim_id'] = f'fixture-{index}'
     for row in payload['dimensions']:
         row.update(status='verified', home='模拟已核实主队名单与表现',
                    away='模拟已核实客队名单与表现', impact='模拟对照比赛路径',
@@ -106,6 +120,41 @@ def research_response(prompt):
         return decision_response(prompt)
     match = json.loads(prompt.split('=== MATCH INPUT ===\n')[1])
     return research_payload(match)
+
+
+def seed_manual_reviews(config, task_id, as_of=ANALYSIS_ASOF):
+    """Actual disk receipts from a synthetic human action, isolated tests only."""
+    from foot_web.services.recommendations import all_directions
+    from foot_web.services.source_provenance import SourceProvenanceStore
+    from foot_web.services.evidence_reviews import save_review
+    from foot_web.services.evidence_confidence import WEIGHTS
+    from foot_web.storage.research import ResearchStore
+    research = ResearchStore(config['DATA_DIR'])
+    from foot_web.services.recommendations import build_bundle
+    workflow = research.workflow(task_id)
+    bundle = build_bundle(workflow['source'], research.items(task_id), workflow['manifest'], as_of,
+                          selector=lambda slot, candidates: candidates[0] if candidates else None)
+    store = SourceProvenanceStore(Path(config['DATA_DIR'])/'source-provenance')
+    seen = set()
+    for leg in all_directions(bundle, include_structures=True):
+        if leg['option_id'] in seen:
+            continue
+        seen.add(leg['option_id'])
+        for source in leg['sources']:
+            text = 'Synthetic offline evidence for explicit human review, not fetched production facts.'
+            captured = store.capture(source['url'], text, as_of, 'non_odds')
+            for dimension in WEIGHTS:
+                claim = {'claim_id': f'fixture-{leg["option_id"]}-{dimension}-{source["id"]}',
+                         'claim': 'Synthetic reviewed support', 'task_id': task_id,
+                         'source_id': captured['source_id'], 'url': source['url'],
+                         'content_sha256': captured['content_sha256'], 'quote': text,
+                         'locator': {'start': 0, 'end': len(text)}, 'source_type': 'non_odds',
+                         'support_status': 'supports', 'match_id': leg['match_key'],
+                         'option_id': leg['option_id'], 'dimension_id': dimension}
+                quote = store.check_quote(claim, as_of=as_of, match_id=leg['match_key'],
+                                          option_id=leg['option_id'], dimension_id=dimension)
+                reviewed = store.record_manual_review(quote['receipt_id'], actor='admin1', reviewed_at=as_of)
+                save_review(config['DATA_DIR'], task_id, claim, quote['receipt_id'], reviewed['receipt_id'])
 
 
 class FakeFetcher:

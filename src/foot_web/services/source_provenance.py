@@ -205,13 +205,16 @@ class SourceProvenanceStore:
                 or body[start:end] != quote):
             raise ProvenanceError("quote is not the located source substring")
         # Only these semantic fields are authoritative; self-asserted flags are discarded.
-        return {"claim_id": _label(claim.get("claim_id"), "claim_id"),
+        binding = {"claim_id": _label(claim.get("claim_id"), "claim_id"),
                 "claim": _label(claim.get("claim"), "claim"),
                 "source_id": claim["source_id"], "url": source["url"],
                 "content_sha256": source["content_sha256"], "quote": quote,
                 "locator": {"start": start, "end": end}, "source_type": "non_odds",
                 "support_status": "supports", "match_id": match_id,
                 "option_id": option_id, "dimension_id": dimension_id}
+        if claim.get('task_id'):
+            binding['task_id'] = _label(claim['task_id'], 'task_id')
+        return binding
 
     def check_quote(self, claim: dict[str, Any], *, as_of: datetime | str,
                     match_id: str, option_id: str, dimension_id: int) -> dict[str, Any]:

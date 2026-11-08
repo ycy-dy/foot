@@ -36,7 +36,8 @@
 | [010](../specs/010-functional-hardening/spec.md) | 功能加固 | 旧实现记录 |
 | [011](../specs/011-task-actions/spec.md) | 任务操作 | 旧实现记录 |
 | [012](../specs/012-sports-agent-system/spec.md) | Agent 产品与规范 | 旧实现记录 |
-| 013 | 移除当前业务政策 | 新规格待用户确认，不以本文代替 |
+| 013 | 移除当前业务政策 | 历史过程，014已重新授权当前政策 |
+| [034](../specs/034-system-functional-verification/spec.md) | 全功能与页面控制件验证 | [验收矩阵](../specs/034-system-functional-verification/functional-matrix.md)，限定范围证据与未完成项 |
 
 ## 4. 交付状态语言
 

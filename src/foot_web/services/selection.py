@@ -70,12 +70,30 @@ def decision_context(source, items, manifest, as_of):
     matches = {item['match_key']: {key: item['match'][key] for key in
                                   ('sport', 'num', 'business_date', 'kickoff', 'period', 'league', 'home', 'away')}
                for item in items}
+    evidence_rows = []
+    for item in items:
+        payload = copy.deepcopy(item.get('payload'))
+        if payload and 'claims' in payload:
+            # Receipts are checked by the deterministic gate, not interpreted by
+            # the model. Share identical assertions once; retain their full hash.
+            claims = payload.pop('claims')
+            assertions = {}
+            for claim in claims:
+                assertion = {key: value for key, value in claim.items()
+                             if key not in ('claim_id', 'option_id', 'quote_receipt_id', 'manual_review_receipt_id')}
+                key = fingerprint(assertion)
+                row = assertions.setdefault(key, {'assertion': assertion, 'option_ids': []})
+                if claim.get('option_id') not in row['option_ids']:
+                    row['option_ids'].append(claim.get('option_id'))
+            payload['claim_assertions'] = list(assertions.values())
+            payload['claims_sha256'] = fingerprint(claims)
+        evidence_rows.append({'match_key': item['match_key'], 'payload': payload})
     context = {'business_date': source['business_date'], 'manifest': manifest, 'options': slim_options,
                'analysis_request': copy.deepcopy(source.get('analysis_request')),
                'matches': matches, 'slots': slots,
                'dream_4x1': any(row.get('formula') == '4x1' for row in source.get('football_allup', {}).get('CRS', [])),
                'match_status': [{'match_key': m['num'], 'exclusion': m['exclusion']} for m in bundle['matches']],
-               'evidence': [{'match_key': item['match_key'], 'payload': item.get('payload')} for item in items]}
+               'evidence': evidence_rows}
     return context
 
 

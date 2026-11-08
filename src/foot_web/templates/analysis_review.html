@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}审核与发布 · {{ analysis_task.business_date }}{% endblock %}
 {% block body %}
-<div class="pagehead"><div><div class="eyebrow">{{ analysis_task.business_date }} / {{ analysis_task.id }}</div><h1>审核与发布</h1><div class="meta">低置信度条件研究 · 发布前重新核对官方数据</div></div><a class="btn" href="{{ analysis_task.result_url }}">返回分析任务</a></div>
+<div class="pagehead"><div><div class="eyebrow">{{ analysis_task.business_date }} / {{ analysis_task.id }}</div><h1>审核与发布</h1><div class="meta">证据评分至少70分，另核人工凭据、官方数据与销售截止</div></div><a class="btn" href="{{ analysis_task.result_url }}">返回分析任务</a></div>
 {% if error %}<div class="notice err" role="alert">{{ error }}</div>{% endif %}
 {% if not draft %}
 <div class="notice">尚无完整结构化草稿。请先完成逐场研究；旧任务需要重新分析。</div>

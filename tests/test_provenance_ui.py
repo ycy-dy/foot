@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import pytest
 from conftest import login
 from foot_web.services.source_provenance import SourceProvenanceStore
 
@@ -44,3 +45,16 @@ def test_manual_capture_rejects_private_url_and_html_is_escaped(client, identity
     response=client.post('/provenance',data={'csrf':csrf,'action':'capture','url':'http://127.0.0.1/private','text':'secret'})
     assert response.status_code == 400
     assert 'secret' not in response.get_data(as_text=True)
+
+
+@pytest.mark.parametrize('claim', ['[]', 'null', '"text"', '42'])
+def test_non_object_claim_returns_validation_error_not_server_error(client, identity, app, monkeypatch, claim):
+    login(client, identity)
+    with client.session_transaction() as session:
+        csrf = session['csrf']
+    tasks = app.extensions['analysis_tasks']
+    monkeypatch.setattr(tasks, 'get', lambda task_id: {'status': 'succeeded'})
+    monkeypatch.setattr(tasks.research, 'items', lambda task_id: [{'match_key': 'm'}])
+    response = client.post('/provenance', data={'csrf': csrf, 'action': 'review', 'task_id': 'task',
+                                              'claim': claim, 'confirmed': '1'})
+    assert response.status_code == 400

@@ -223,7 +223,7 @@ def test_historical_review_ui_not_relabelled_ai(client, identity, app, tmp_path)
     assert '历史/纯结算版本' in html and '未保存AI分析，不追溯标记' in html
     (folder / 'manifest.json').write_text(json.dumps({'analysis_mode': 'ai_review'}))
     html = client.get('/reviews/legacy-review').get_data(as_text=True)
-    assert 'DeepSeek Harness AI分析' in html and '历史/纯结算版本' not in html
+    assert '当前政策提供方 AI分析' in html and '历史/纯结算版本' not in html
 
 
 def test_settlement_only_cannot_masquerade_as_ai(review_case):

@@ -17,6 +17,13 @@ def test_analysis_controller_defensively_normalizes_empty_state_and_logs():
     assert 'AbortSignal.timeout' in JS
 
 
+def test_control_response_does_not_require_poll_only_log_array():
+    controls = JS.split("for (const action of ['cancel', 'resume'])", 1)[1].split("button?.addEventListener", 1)[0]
+    assert 'normalizeTask(data.task)' in controls
+    assert 'Array.isArray(data.logs)' not in controls
+    assert "task.publication_url ? ['done', '已发布']" in JS
+
+
 def test_analysis_page_wires_log_controls_and_single_script(client, identity):
     login(client, identity)
     page = Elements(client.get('/?date=2026-11-04').get_data(as_text=True))

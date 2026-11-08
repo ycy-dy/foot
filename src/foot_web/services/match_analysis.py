@@ -29,7 +29,9 @@ def latest_match_analysis(tasks, match, config, as_of):
     except (OSError, ValueError, KeyError, TypeError):
         pass
     # Compute current quality at viewing time; never silently reuse old prices.
-    opinions = options_with_evidence(item['match'], item, as_of) if item.get('payload') else []
+    from .evidence_reviews import runtime_items
+    checked_item = runtime_items(config, item['task_id'], [item], as_of)[0]
+    opinions = options_with_evidence(item['match'], checked_item, as_of) if item.get('payload') else []
     return {'item': item, 'evidence': item.get('payload'), 'options': opinions,
             'current_version': current, 'as_of': moment(as_of).isoformat(),
             'task_id': item['task_id'], 'match_key': key,

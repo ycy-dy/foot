@@ -226,4 +226,14 @@
 - **未完成**：原生网关搜索404未修服务端，已使用明确公开采集通路；全业务日/生产人工发布和次日复盘仍待#4，来源凭据实际准入风险见#14。未启用消息/计划/投注，原工作区改动未纳入。
 - **验证与推送**：本笔文档diff检查；无运行代码变更不再重启，推送当前main→origin/main并核验，不强推。
 
+## C20261108-034 · 全功能验收、真实凭据准入与页面修复
+
+- **关联**：[Issue #14](https://github.com/ycy-dy/foot/issues/14)、[Issue #8](https://github.com/ycy-dy/foot/issues/8)、[规格034](../specs/034-system-functional-verification/spec.md)。
+- **范围**：49条生产路由/活动页面/核心逻辑与按钮矩阵；运行候选/发布实际消费磁盘quote/manual receipts，task/match/option/dimension/来源/当前管理员/时点绑定；人工复核独立覆盖层新建任务重新AI决策、完整claims哈希和去重复投影。依赖的原有未提交claim schema/评分/fixture变更一并收口；不纳入.env.example、生产ledger/runs/var。
+- **缺陷修复**：取消/继续控制误报日志格式、已发布状态、台账pre溢出、遗留报告HTML清洗、重复标题、提供方文案和人工复核表单排版；原研究和原票不改。
+- **验证**：最终完整521 passed/200.59s；实际app.js Node控制测试、compileall、diff检查。隔离双视口42页无JS异常/溢出；实际点击主要查询/配置/分析控制/发布撤销/临场/复盘/复核后新任务。非对象JSON输入500改400；详细正反与真实/模拟边界见034矩阵/verification，不声称全部生产按钮全状态验完。
+- **部署**：生产任务active均0后最终重启5020 PID47446；healthz ok、readiness db/policy true。无消息/计划/持续监控启用，无生产发布或自动投注。
+- **剩余**：#4真实全天到次日闭环、#8生产全页面/账号/跨地址OAuth、#9真实依赖可靠性、#14源端真实性/语义分组/安全/模型验证保持开放；独立概率/EV仍null。
+- **上一笔推送**：4772cb2此前因网络超时保留本地，随本笔正常推送main→origin/main，不强推；最终以远程核验和Issue总结为准。
+
 

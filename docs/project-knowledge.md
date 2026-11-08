@@ -2,7 +2,7 @@
 
 > 面向项目成员、产品人员和后续 AI Agent 的人类可读说明。
 >
-> 更新日期：2026-11-06  
+> 更新日期：2026-11-08
 > 文档性质：项目认知与上手指南  
 > 当前状态：用户重新确认原推荐要求并添加70%证据可信度硬门槛；现行政策为规格014，支持受控研究、人工发布及每日冻结台账。旧V6文件和编辑器不恢复。
 
@@ -47,7 +47,8 @@
 | `docs/project-governance.md` | 工程规范阅读地图和状态语言 |
 | `docs/sports-agent-system.md` | 目标架构、角色和安全边界 |
 | `specs/001-*/`至`specs/012-*/` | 旧实现记录；规格006目录已删除 |
-| `specs/013-*/` | 待用户确认的新业务政策规格（若创建） |
+| `specs/013-*/` | 移除旧政策的历史过程，已由014后续授权覆盖 |
+| `specs/014-*/`至`specs/034-*/` | 当前政策及后续实施、缺陷修复和验收记录 |
 | `src/foot_web/` | Flask Web 控制台与分层服务 |
 | `tools/` | 审核、核对和迁移工具 |
 | `runs/` | 新旧运行工件；只读核对，不因本轮改写 |
@@ -58,7 +59,7 @@
 
 ## 5. 新成员上手顺序
 
-1. 阅读本文，理解当前无业务政策和不投注边界。
+1. 阅读本文，理解当前014政策、唯一Codex提供方和不投注边界。
 2. 阅读[项目治理与阅读地图](project-governance.md)、[系统蓝图](sports-agent-system.md)和[目录约定](directory-layout.md)。
 3. 阅读[工程宪法](../.specify/memory/constitution.md)。
 4. 按规格014/023的spec、plan、tasks和verification读取当前契约；旧规格仅作实现记录。
@@ -70,3 +71,4 @@
 - [AI Agent 系统蓝图](sports-agent-system.md)
 - [目录约定](directory-layout.md)
 - [工程宪法](../.specify/memory/constitution.md)
+- [全功能、页面与控制件验收](../specs/034-system-functional-verification/functional-matrix.md)

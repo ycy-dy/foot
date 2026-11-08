@@ -60,6 +60,11 @@ def reuse_recent(config, task, workflow, folder, store, now, log):
             available = {option['id'] for option in option_catalog(item['match'])}
             evidence['assessments'] = [row for row in evidence['assessments'] if row['option_id'] in available]
             evidence = validate_evidence(evidence, item['match'], old['as_of'])
+            from .evidence_reviews import reviewed_evidence
+            from ..core.config import id_set
+            evidence = reviewed_evidence(config['DATA_DIR'], parent_id, task['id'],
+                item | {'payload': evidence}, now, id_set(config.get('FOOT_ADMIN_USER_IDS')))
+            evidence = validate_evidence(evidence, item['match'], now)
             target = folder / 'matches' / item['match_key']
             target.mkdir(parents=True, exist_ok=True)
             filename = 'cache-' + uuid.uuid4().hex + '.json'

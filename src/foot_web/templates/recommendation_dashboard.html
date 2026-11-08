@@ -5,7 +5,7 @@
 <select data-date-select aria-label="业务日">{% for d in dates %}<option value="{{ d }}" {{ 'selected' if d == bd }}>{{ d }}</option>{% endfor %}</select>
 {% if user.role == 'admin' %}<button type="button" class="btn primary" id="btn-recompute" data-analysis-date="{{ bd }}">{{ icon('refresh-cw') }}<span>重新分析</span></button>{% include 'analysis_stop_button.html' %}{% endif %}
 <a class="btn" href="/daily-ledger?date={{ bd }}">每日推荐台账</a></div></div>
-<div class="notice"><b>证据可信度≥70%才可推荐。</b>这是有版本的证据政策评分，不是命中概率；低于门槛、未知或关键证据冲突均不凑单。研究与推荐统一由 DeepSeek Harness 完成；历史 Claude/Codex 记录仅作展示，不构成新成功。整单市场概率为独立近似，模型未部署、EV未知。不保证命中或收益。</div>
+<div class="notice"><b>证据可信度≥70%才可推荐。</b>这是有版本的证据政策评分，不是命中概率；低于门槛、未知或关键证据冲突均不凑单。当前研究与推荐由政策指定的 Codex CLI 完成；公开资料采集与AI判断分别留存，历史其他提供方记录不构成新成功。整单市场概率为独立近似，模型未部署、EV未知。不保证命中或收益。</div>
 {% if error %}<div class="notice">{{ error }}</div>{% endif %}
 {% if user.role == 'admin' %}{% include 'analysis_status.html' %}{% endif %}
 <section class="card"><h2>最终推荐汇总</h2>
@@ -15,7 +15,7 @@
 {% include 'dream_ticket.html' %}
 <section class="card"><h2>完整赛程与研究状态</h2><p>以下仅为官方赛程和状态，不是推荐。足球主前客后；篮球客前主后。不会自动读取或发送钉钉消息。</p>
 <div class="scroll"><table class="grid"><thead><tr><th>项目</th><th>编号</th><th>开球</th><th>赛事</th><th>对阵</th><th>时段</th><th>状态／排除原因</th><th>逐场分析</th></tr></thead><tbody>
-{% for m in matches %}<tr><td>{{ '足球' if m.sport == 'football' else '篮球' }}</td><td>{{ m.num }}</td><td>{{ m.kickoff }}</td><td>{{ m.league }}</td><td>{% if m.sport == 'football' %}{{ m.home }} VS {{ m.away }}{% else %}{{ m.away }}（客） VS {{ m.home }}（主）{% endif %}</td><td>{{ m.period }}</td><td>{{ m.exclusion or '待非赔率证据研究、评分及AI决策' }}</td><td><a class="btn" href="{{ url_for('pages.match', sport=m.sport, num=m.num, date=bd) }}">逐场分析</a></td></tr>{% else %}<tr><td colspan="7">暂无可用官方赛程；不会编造比赛或推荐。</td></tr>{% endfor %}
+{% for m in matches %}<tr><td>{{ '足球' if m.sport == 'football' else '篮球' }}</td><td>{{ m.num }}</td><td>{{ m.kickoff }}</td><td>{{ m.league }}</td><td>{% if m.sport == 'football' %}{{ m.home }} VS {{ m.away }}{% else %}{{ m.away }}（客） VS {{ m.home }}（主）{% endif %}</td><td>{{ m.period }}</td><td>{{ m.exclusion or '待非赔率证据研究、评分及AI决策' }}</td><td><a class="btn" href="{{ url_for('pages.match', sport=m.sport, num=m.num, date=bd) }}">逐场分析</a></td></tr>{% else %}<tr><td colspan="8">暂无可用官方赛程；不会编造比赛或推荐。</td></tr>{% endfor %}
 </tbody></table></div></section>
 {% endblock %}
 {% block scripts %}{% if user.role == 'admin' %}<script src="{{ url_for('static', filename='analysis.js') }}?v=7" defer></script>{% endif %}{% endblock %}

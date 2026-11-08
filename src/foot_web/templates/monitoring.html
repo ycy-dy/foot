@@ -11,7 +11,7 @@
 <label class="monitor-toggle"><input type="checkbox" name="enabled" value="1" disabled aria-describedby="monitoring-disabled">启用当前报告的临场监控（未授权）</label>
 <div class="filters"><label>开赛前开始（分钟）<input type="number" name="lead_minutes" value="{{ settings.lead_minutes }}" min="15" max="180" required></label>
 <label>复核间隔（分钟）<input type="number" name="interval_minutes" value="{{ settings.interval_minutes }}" min="5" max="60" required></label></div>
-<label class="monitor-toggle"><input type="checkbox" name="lineup_enabled" value="1" {{ 'checked' if settings.lineup_enabled }}>补核首发与伤停（调用 DeepSeek Harness）</label>
+<label class="monitor-toggle"><input type="checkbox" name="lineup_enabled" value="1" {{ 'checked' if settings.lineup_enabled }}>补核首发与伤停（当前政策：Codex CLI）</label>
 <button class="btn primary" type="submit">{{ icon('shield-check') }}保存停用设置</button>
 </form><p class="small muted">未启用时不自动提交复核。停用不终止已提交任务；正式首发查不到时保留待核，不当作已确认变化。</p>
 </section>

@@ -22,7 +22,7 @@ def evidence(status='verified', *, conflict=False, partial=False):
         rows[12]['status'] = 'partial'
     return {'sources': [source, source | {'id': 's2', 'group_id': 'g2', 'url': 'https://league.example/news'}], 'dimensions': rows,
             'assessments': [{'option_id': 'o1', 'reasons': ['理由一', '理由二'], 'source_ids': ['s1']}],
-            'claims': [{'claim_id': 'c1', 'source_id': 's1', 'content_sha256': 'hash', 'quote': '引用', 'locator': 'p1', 'source_type': 'non_odds', 'support_status': 'supports', 'verification_status': 'manual_verified'}]}
+            'claims': [{'claim_id': 'c1', 'option_id': 'o1', 'source_id': 's1', 'content_sha256': 'hash', 'quote': '引', 'locator': {'start': 0, 'end': 1}, 'quote_receipt_id': 'q', 'manual_review_receipt_id': 'r', 'source_type': 'non_odds', 'support_status': 'supports', 'verification_status': 'manual_verified'}]}
 
 
 def test_verified_contract_reaches_threshold_and_is_policy_not_probability():
@@ -75,6 +75,12 @@ def test_missing_claim_provenance_blocks_new_recommendation():
     value['claims'] = [{'claim_id': 'c1', 'source_id': 's1'}]
     result = score_evidence(value, option_id='o1', as_of=ASOF)
     assert not result['eligible'] and any('claim级' in r for r in result['reasons'])
+
+
+def test_claim_for_another_option_does_not_authorize_this_option():
+    value = evidence()
+    value['claims'][0]['option_id'] = 'another-option'
+    assert not passes(score_evidence(value, option_id='o1', as_of=ASOF))
 
 
 def test_odds_claim_or_unverified_claim_cannot_pass():

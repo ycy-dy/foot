@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}日志{% endblock %}
 {% block body %}
+<div class="pagehead"><h1>审计日志</h1></div>
 <section class="card"><h2>最近100条日志</h2>
 <div class="scroll"><table class="grid"><tr><th>时间</th><th>事件</th><th>userId</th><th>姓名</th><th>IP</th><th>详情</th></tr>
 {% for e in events %}<tr><td>{{ e.ts }}</td><td>{{ e.event }}</td><td><code>{{ e.user_id or '' }}</code></td><td>{{ e.name or '' }}</td><td>{{ e.ip or '' }}</td><td>{{ e.detail or '' }}</td></tr>{% endfor %}

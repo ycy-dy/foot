@@ -63,7 +63,9 @@
         : ['compose', 'draft'].includes(progress.phase) ? ['done', '已保存'] : failed ? ['failed', '可续跑'] : ['pending', '等待'],
       compose: progress.phase === 'compose' && active(task) ? ['active', '计算中']
         : progress.phase === 'draft' ? ['done', '已计算'] : ['pending', '等待'],
-      draft: task.status === 'succeeded' ? ['done', '待审核'] : failed ? ['skipped', '未生成'] : ['pending', '等待']
+      draft: task.publication_state === 'withdrawn' ? ['done', '展示已撤销']
+        : task.publication_url ? ['done', '已发布']
+        : task.status === 'succeeded' ? ['done', '待审核'] : failed ? ['skipped', '未生成'] : ['pending', '等待']
     };
     document.querySelectorAll('[data-analysis-stage]').forEach(element => {
       if (!state[element.dataset.analysisStage]) return;
@@ -265,7 +267,8 @@
       if (!response.ok) throw new Error('连接中断，正在重连');
       const data = await response.json();
       if (stale()) return;
-      task = data.task;
+      task = normalizeTask(data.task);
+      if (!task || !Array.isArray(data.logs)) throw new Error('任务状态格式无效');
       const incoming = data.logs.filter(row => row && Number.isFinite(Number(row.id)) && Number(row.id) > cursor).map(normalizeLog);
       if (incoming.length) {
         rows = [...rows, ...incoming].slice(-600);
@@ -332,7 +335,7 @@
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || '操作未完成');
         task = normalizeTask(data.task);
-       if (!task || !Array.isArray(data.logs)) throw new Error('任务状态格式无效');
+        if (!task) throw new Error('任务状态格式无效');
         controller?.abort();
         ++pollGeneration;
         clearTimeout(timer);

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from foot_web.services.versions import RULE_FILES
 
-from conftest import ANALYSIS_ASOF, FakeFetcher, audited_research_response as research_response, login
+from conftest import ANALYSIS_ASOF, FakeFetcher, audited_research_response as research_response, login, set_policy_provider
 from foot_web import create_app
 from foot_web.engine.tasks import AnalysisTasks, run_task
 from foot_web.services.publications import PublicationError, PublicationService
@@ -30,8 +30,16 @@ def researched(cfg, tmp_path):
         (root / name).parent.mkdir(parents=True, exist_ok=True)
         (root / name).write_bytes((Path(cfg['PROJECT_DIR']) / name).read_bytes())
     config = cfg | {'PROJECT_DIR': str(root), 'DATA_DIR': str(tmp_path / 'var')}
+    set_policy_provider(root, 'codex')
     tasks = AnalysisTasks(config, launcher=lambda *args: os.getpid())
     task, _ = tasks.start('2026-11-04', 'admin1')
+    config['FOOT_AI_PROVIDER'] = 'codex'
+    run_task(config, task['id'], fetcher=FreshFetcher(),
+             generate=lambda provider, prompt, *a, **kw: research_response(prompt), as_of=ANALYSIS_ASOF)
+    assert tasks.get(task['id'])['status'] == 'succeeded'
+    from conftest import seed_manual_reviews
+    seed_manual_reviews(config, task['id'])
+    task, _ = tasks.start('2026-11-04', 'admin1', reuse_from=task['id'])
     run_task(config, task['id'], fetcher=FreshFetcher(),
              generate=lambda provider, prompt, *a, **kw: research_response(prompt), as_of=ANALYSIS_ASOF)
     assert tasks.get(task['id'])['status'] == 'succeeded'
@@ -322,3 +330,11 @@ def test_live_recheck_keeps_original_and_reuses_evidence_at_original_time(resear
     run_recheck(config, cancelled['id'], fetcher=fetcher, analyst=analyst)
     assert store.get(cancelled['id'])['status'] == 'cancelled'
     assert len(calls) == count and original.read_bytes() == frozen
+
+
+def test_missing_frozen_baseline_blocks_publish(researched, monkeypatch):
+    config, _, task, fetcher = researched
+    service = PublicationService(config, fetcher)
+    monkeypatch.setattr('foot_web.services.publications.freeze_baseline', lambda *args: None)
+    checked = service.check(task['id'], 'admin1', now=ANALYSIS_ASOF)
+    assert not checked['passed'] and any('冻结市场基准' in e for e in checked['errors'])

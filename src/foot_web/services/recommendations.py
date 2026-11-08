@@ -35,6 +35,12 @@ def options_with_evidence(match, item, as_of=None):
         if not option['sources'] and not any('仅按市场基准' in reason for reason in option['reasons']):
             option['reasons'][0] = '未查到非赔率依据，仅按市场基准；' + option['reasons'][0]
         option['evidence_confidence'] = score_evidence(evidence, option_id=option['id'], as_of=as_of or item.get('as_of'))
+        if '_provenance_checks' in item and option['evidence_confidence'] is not None:
+            verified = item['_provenance_checks'].get(option['id'], False)
+            option['evidence_confidence']['provenance_verified'] = verified
+            if not verified:
+                option['evidence_confidence']['eligible'] = False
+                option['evidence_confidence']['reasons'].append('缺少当前选项的有效磁盘人工复核凭据')
         option['evidence_state'] = 'sourced_pending_manual_review' if option['sources'] else 'market_only'
         option['model_probability'] = None
         option['EV'] = None

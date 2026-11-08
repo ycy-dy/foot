@@ -93,7 +93,10 @@ def evidence(task_id, match_id):
     from ..services.recommendations import options_with_evidence
     from datetime import datetime
     from zoneinfo import ZoneInfo
-    scored_options = options_with_evidence(item['match'], item, datetime.now(ZoneInfo('Asia/Shanghai')))
+    now = datetime.now(ZoneInfo('Asia/Shanghai'))
+    from ..services.evidence_reviews import runtime_items
+    checked_item = runtime_items(current_app.config['FOOT'], task_id, [item], now)[0]
+    scored_options = options_with_evidence(item['match'], checked_item, now)
     return render_template('evidence.html', scored_options=scored_options, analysis_task=task, item=item, m=item['match'],
                            evidence=item['payload'], dimensions=DIMENSIONS, statuses=STATUSES)
 
