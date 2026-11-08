@@ -198,7 +198,15 @@
 - **关联**：[Issue #14](https://github.com/ycy-dy/foot/issues/14)、[规格032](../specs/032-manual-evidence-review/spec.md)。
 - **范围**：新增admin-only/provenance页面，CSRF、请求大小、capture/review动作白名单和确认；actor/time由服务器登录态提供不接受AI/表单伪造，审计只存工件ID，页面no-store/转义。
 - **验证**：人工入口+本地溯源专项52 passed；完整回归/部署见032验证。输入正文由管理员提供，不证明真实抓网/语义蕴含，尚未提高分数或接新发布准入，不改原票。
-- **提交定位**：`feat: add authenticated manual provenance review [C20261107-027]`，Refs #14；提交后push核验，同时补推031，不包含私有工件。
+- **同步结果**：2802bdd已推送核验，随后任务绑定补强也已随提交完成。
+
+## C20261107-029 · 国际级审计P0/P1继续与文档一致性
+
+- **关联**：[Issue #14](https://github.com/ycy-dy/foot/issues/14)、规格024/025/026/029/032。
+- **范围**：readiness DB/policy只读探针、CSP nonce、安全Cookie opt-in、P0官方source/baseline/ID/时钟门禁、管理员证据receipt任务绑定、旧provider文档漂移修正、工具/快照完整回归。
+- **验证**：readiness/CSP/管理员receipt/claim专项及完整回归已通过；服务健康。剩余source真实性抓取、baseline选择偏差/CI、模型OOS、公网TLS/限流/metrics仍未完成。
+- **当前状态**：审计规划与多项P0完成，但不是国际顶流/预测盈利认证；后续规格024 claim强制新发布、025 schema drift、027模型就绪继续开放。
+
 
 
 
