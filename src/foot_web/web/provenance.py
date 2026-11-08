@@ -29,6 +29,17 @@ def manual_review():
                 if request.form.get('confirmed') != '1':
                     raise ProvenanceError('请逐项确认原文、引用、比赛与选项的实际支持关系')
                 claim = json.loads(request.form.get('claim', ''))
+                task_id = request.form.get('task_id', '').strip()
+                if not task_id:
+                    raise ProvenanceError('必须绑定真实研究任务，不能只提交自由文本claim')
+                task = current_app.extensions['analysis_tasks'].get(task_id)
+                if not task or task.get('status') not in ('succeeded', 'partial'):
+                    raise ProvenanceError('研究任务不存在或尚未保存检查点')
+                item = next((x for x in current_app.extensions['analysis_tasks'].research.items(task_id)
+                             if x['match_key'] == claim.get('match_id')), None)
+                if item is None:
+                    raise ProvenanceError('claim比赛身份不属于该研究任务')
+                claim['task_id'] = task_id
                 quote = store.check_quote(claim, as_of=now, match_id=claim.get('match_id', ''),
                                           option_id=claim.get('option_id', ''), dimension_id=claim.get('dimension_id'))
                 reviewed = store.record_manual_review(quote['receipt_id'], actor=g.user['user_id'], reviewed_at=now)

@@ -22,13 +22,20 @@ def test_manual_review_auth_csrf_and_no_self_reported_actor(client, identity, ap
     claim = {'claim_id':'c1','claim':'supported statement','source_id':snapshot_path.name,
         'url':snapshot['url'],'content_sha256':snapshot['content_sha256'],'quote':'Exact public quote',
         'locator':{'start':0,'end':18},'source_type':'non_odds','support_status':'supports',
-        'match_id':'m1','option_id':'o1','dimension_id':4,'actor':'forged-ai-user'}
-    assert client.post('/provenance', data={'csrf':csrf,'action':'review','claim':json.dumps(claim)}).status_code == 400
-    response = client.post('/provenance', data={'csrf':csrf,'action':'review','claim':json.dumps(claim),'confirmed':'1','actor':'forged-ai-user'})
-    assert response.status_code == 200
-    receipts = [json.loads(p.read_text()) for p in (store.root / 'reviews').iterdir()]
-    assert len(receipts) == 1 and receipts[0]['actor'] == 'admin1'
+        'match_id':'missing-match','option_id':'o1','dimension_id':4,'actor':'forged-ai-user'}
+    assert client.post('/provenance', data={'csrf':csrf,'action':'review','task_id':'missing-task','claim':json.dumps(claim)}).status_code == 400
+    response = client.post('/provenance', data={'csrf':csrf,'action':'review','task_id':'missing-task','claim':json.dumps(claim),'confirmed':'1','actor':'forged-ai-user'})
+    assert response.status_code == 400
+    assert not list((store.root / 'reviews').iterdir())
     assert response.headers['Cache-Control'] == 'private, no-store'
+
+
+def test_manual_review_requires_existing_research_task(app, client, identity):
+    login(client, identity)
+    with client.session_transaction() as s: csrf=s['csrf']
+    claim={'claim_id':'c','match_id':'m','option_id':'o','dimension_id':4}
+    response=client.post('/provenance',data={'csrf':csrf,'action':'review','task_id':'missing','claim':json.dumps(claim),'confirmed':'1'})
+    assert response.status_code == 400 and not list((Path(app.config['FOOT']['DATA_DIR'])/'source-provenance'/'reviews').glob('*'))
 
 
 def test_manual_capture_rejects_private_url_and_html_is_escaped(client, identity):
