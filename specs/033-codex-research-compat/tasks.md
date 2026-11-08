@@ -6,4 +6,4 @@
 - [x] 完整证据schema单场真实有界验收：公开采集+Codex无工具研究，23维/2来源，84.21秒。
 - [x] 聚焦与全量测试：最终499 passed/157.06秒，编译和差异通过。
 - [x] 部署健康：PID69183，/healthz ok、/readiness db/policy=true。
-- [ ] Issue总结、提交推送。
+- [x] Issue总结、提交推送：3eab6e2已到origin/main且远程哈希一致；已提交源码独立回归502 passed。
