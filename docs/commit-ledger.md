@@ -270,4 +270,13 @@
 - **部署**：无运行代码接入，不重启服务，健康检查状态不变。
 - **推送目标**：main→origin/main；结果以远程核验为准，不强推。
 
+## C20261109-039 · 赛前多时点快照契约与只读审计（规格038）
+
+- **关联**：[Issue #14](https://github.com/ycy-dy/foot/issues/14)（待同步）、[规格038](../specs/038-pit-multi-aspect/spec.md)、[规格025](../specs/025-pit-snapshots/spec.md)、[借鉴清单](../docs/open-source-borrowing.md)第4项。
+- **问题**：系统只有"最近一次抓取"，没有"这是赛前24h/6h/90m哪份数据"的契约，收盘赔率可被当早期基线，形成领先偏差。
+- **修改**：新增`data/pit.py`（三边界、时点归类、as-of选择、覆盖报告、越界校验，纯函数）；`tools/pit_coverage.py`只读审计；`tests/test_pit.py`8条；规格038三件套；借鉴清单补状态与实测。
+- **边界**：未接入评分/发布/复盘；不写快照与数据库；不改014/036政策与在途036改动；无运行代码接入，不重启服务。
+- **验证**：`tests/test_pit.py` 8 passed；真实只读审计2026-11-08：足球30场三时点齐全但陈旧最长约17小时，篮球14场T-24h覆盖0/14（另6场缺T-6h、1场缺T-90m）；完整回归559 passed/310.92s，2 failed（test_recommendation_decisions、test_reviewed_reanalysis），干净HEAD worktree复跑均pass，确认由在途036未提交改动引起。
+- **推送目标**：main→origin/main；结果以远程核验为准，不强推。
+
 

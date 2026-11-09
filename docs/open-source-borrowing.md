@@ -14,7 +14,7 @@
 | 1 | Dixon-Coles 低比分修正、Poisson 比分矩阵、Elo 期望/更新 | [penaltyblog](https://github.com/martineastwood/penaltyblog)（MIT）、[football-prediction-skill](https://github.com/JetQiao/football-prediction-skill)（MIT）、[wc26-predict](https://github.com/AndyDu0921/wc26-predict)（MIT） | 新增 `src/foot_web/engine/probability.py` | 已实现原语，**未接入**推荐/发布，概率仍 null | P0 |
 | 2 | 概率评估指标：logloss、Brier、ECE、校准斜率 | 同上 | 同一模块，供 [027](../specs/027-model-readiness/spec.md) 模型就绪门槛使用 | 已实现，待接评测 | P0 |
 | 3 | walk-forward 时间切分（train/calibrate/test + embargo） | [football-prediction-skill](https://github.com/JetQiao/football-prediction-skill)、[wc26-predict](https://github.com/AndyDu0921/wc26-predict) | 同一模块 `walk_forward_splits`，后续接入 [026](../specs/026-frozen-evaluation/spec.md) | 已实现切分原语 | P1 |
-| 4 | 赛前时点截断 T-24h / T-6h / T-90m，收盘赔率不得冒充早期基线 | [football-prediction-skill](https://github.com/JetQiao/football-prediction-skill) | [025](../specs/025-pit-snapshots/spec.md) 由"单时点快照"升级为"多时点快照" | 未实施 | P1 |
+| 4 | 赛前时点截断 T-24h / T-6h / T-90m，收盘赔率不得冒充早期基线 | [football-prediction-skill](https://github.com/JetQiao/football-prediction-skill) | 规格038：`data/pit.py` 契约 + `tools/pit_coverage.py` 只读审计 | 契约与工具已实现；发布链路接线待后续 | P1 |
 | 5 | champion/challenger 晋级门槛，任何入口不能静默绕过 | [football-prediction-skill](https://github.com/JetQiao/football-prediction-skill) | 027 模型注册增加晋级协议 | 未实施 | P1 |
 | 6 | Agent 只读数据契约：不下注、不索要密钥、外部文本视为不可信数据、必须携带来源/时效 | [sports-skills](https://github.com/machina-sports/sports-skills)（MIT） | `docs/` 增补"外部数据契约"，并作为研究提示词的一部分 | 未实施 | P0 |
 | 7 | 统一多源赛程/结果抓取适配层 | [soccerdata](https://github.com/probberechts/soccerdata)（无明确许可，仅借鉴设计） | `src/foot_web/data/` 增加适配器，保留官方快照优先 | 未实施 | P2 |
@@ -45,7 +45,8 @@
 | 025 | 借鉴项 4 是其后续增强 |
 | 026 | 借鉴项 2、3 为其提供评测原语 |
 | 027 | 借鉴项 1、2、3、5 的服务对象；门槛不变 |
-| 037 | 本清单的实施规格 |
+| 037 | 概率与评估原语实施规格 |
+| 038 | 借鉴项 4（多时点快照）实施规格 |
 
 ## 5. Issue 登记（待同步）
 
@@ -53,3 +54,14 @@
 恢复后补建：标题「P1 借用开源方法充实概率与评估基础设施」，关联 Issue #14（模型验证
 与风险路线），正文要点即本清单第 1 节 1–5 项与规格037。提交说明暂用 `Refs #14`，
 不得冒报已创建。
+
+## 6. 首次只读实测（2026-11-08）
+
+命令：`.venv/bin/python tools/pit_coverage.py --date 2026-11-08 --sport football`
+
+- 足球 30 场：T-24h / T-6h / T-90m 三个时点**都有**快照，但"有"不等于"新鲜"。
+  早场的 T-6h 实际取到前一交易日 13:58 的快照，最陈旧约 17 小时；T-24h 最陈旧约 14 小时。
+- 篮球 14 场：T-24h 覆盖 **0/14**（快照都在当日产生），6 场缺 T-6h，1 场缺 T-90m。
+  把临场快照当 T-24h 基线就是领先偏差，工具会如实判 missing，不回填。
+- 结论：现有抓取节奏撑不起"多时点基线"。在多时点真正可用前，报告里只能标 missing；
+  补抓取节奏（赛前 24h/6h 定点抓取）需要独立规格，不混进本次契约改动。
