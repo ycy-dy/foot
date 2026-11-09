@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
-{% block title %}{{ bd }} · 当日赛程与证据门槛推荐{% endblock %}
+{% block title %}{{ bd }} · 今日分析与证据门槛推荐{% endblock %}
 {% block body %}
-<div class="pagehead"><div><h1>当日赛程与推荐</h1><p>{{ bd }} · {{ week }} · 北京时间</p></div><div class="actions">
+<div class="pagehead"><div><h1>今日分析</h1><p>{{ bd }} · {{ week }} · 北京时间</p></div><div class="actions">
 <select data-date-select aria-label="业务日">{% for d in dates %}<option value="{{ d }}" {{ 'selected' if d == bd }}>{{ d }}</option>{% endfor %}</select>
 {% if user.role == 'admin' %}<button type="button" class="btn primary" id="btn-recompute" data-analysis-date="{{ bd }}">{{ icon('refresh-cw') }}<span>重新分析</span></button>{% include 'analysis_stop_button.html' %}{% endif %}
 <a class="btn" href="/daily-ledger?date={{ bd }}">每日推荐台账</a></div></div>

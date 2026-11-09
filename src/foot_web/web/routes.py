@@ -29,9 +29,10 @@ def pick_date(fb, bk):
     today = datetime.now(TZ).date().isoformat()
     if want in dates:
         return want, dates
-    if today in dates:
-        return today, dates
-    return (dates[0] if dates else today), dates
+    # The landing page is always anchored to the current Beijing business day.
+    # A stale snapshot must produce an honest empty state, never masquerade as
+    # yesterday's "today" view. Historical dates remain available explicitly.
+    return today, dates
 
 
 def ledger():
@@ -84,8 +85,9 @@ def index():
     report = latest_report(current_app.config['FOOT']['PROJECT_DIR'], bd, current_app.config['FOOT']['DATA_DIR'])
     from ..services.dream import published_dream
     dream = published_dream(current_app.extensions['publications'], current_app.config['FOOT'], bd)
+    date_options = sorted(set(dates) | {bd}, reverse=True)
     return render_template('recommendation_dashboard.html', dream=dream, bd=bd, week=markets.weekday_label(bd),
-                           dates=dates or [bd], matches=rows, error=error, report=report,
+                           dates=date_options, matches=rows, error=error, report=report,
                            analysis_task=current_app.extensions['analysis_tasks'].latest(bd)
                            if g.user['role'] == 'admin' else None)
 
@@ -248,7 +250,7 @@ def report_view():
 def api_today():
     fb, fb_meta, bk, bk_meta = load()
     bd, dates = pick_date(fb, bk)
-    return {'success': True, 'business_date': bd, 'dates': dates, 'football_meta': fb_meta, 'basketball_meta': bk_meta,
+    return {'success': True, 'business_date': bd, 'dates': sorted(set(dates) | {bd}, reverse=True), 'football_meta': fb_meta, 'basketball_meta': bk_meta,
             'football': [r for r in fb if r['business_date'] == bd], 'basketball': [r for r in bk if r['business_date'] == bd]}
 
 

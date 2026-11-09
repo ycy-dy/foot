@@ -27,6 +27,7 @@ def test_schedule_table_and_date_selector_are_accessible(client, identity):
     assert '完整赛程与研究状态' in html and '不是推荐' in html
     assert any(tag == 'table' for tag, _ in page.elements)
     assert not page.with_attr('role', 'tab')  # legacy recommendation tabs are gone
+    assert '今日分析' in html
 
 
 def test_viewer_has_navigation_but_no_admin_actions(client, identity):

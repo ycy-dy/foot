@@ -1,15 +1,40 @@
+from datetime import datetime
+
 from conftest import login
+
+
+def test_index_without_date_stays_on_current_beijing_day_not_latest_snapshot(client, identity, monkeypatch):
+    import foot_web.web.routes as routes
+
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 11, 9, 10, 0, tzinfo=tz)
+
+    monkeypatch.setattr(routes, 'datetime', FrozenDateTime)
+    login(client, identity)
+    html = client.get('/').get_data(as_text=True)
+    assert '2026-11-09' in html
+    assert 'value="2026-11-09" selected' in html
+    assert '暂无可用官方赛程' in html
+    assert '2026-11-04 ·' not in html
 
 
 def test_index_lists_today(client, identity):
     login(client, identity)
     html = client.get('/?date=2026-11-04').get_data(as_text=True)
-    assert '2026-11-04' in html and '当日赛程与推荐' in html
+    assert '2026-11-04' in html and '今日分析' in html
     assert '莱比锡红牛' in html and '曼彻斯特城' in html
     assert '（客）' in html and '（主）' in html          # 篮球客前主后
     for panel in ('最终推荐汇总', '完整赛程与研究状态', '70%'):
         assert panel in html
     assert '早中场①' in html and '晚场②' in html
+
+
+def test_sidebar_calls_landing_page_today_analysis(client, identity):
+    login(client, identity)
+    html = client.get('/?date=2026-11-04').get_data(as_text=True)
+    assert '今日分析' in html
 
 
 def test_api_today(client, identity):

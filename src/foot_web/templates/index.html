@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% import 'macros.html' as ui %}
-{% block title %}{{ bd }} {{ week }} · 今日推荐{% endblock %}
+{% block title %}{{ bd }} {{ week }} · 今日分析{% endblock %}
 {% block body %}
 <div class="pagehead">
   <div>
     <div class="eyebrow">每日研究 / {{ bd }} {{ week }}</div>
-    <h1 aria-label="{{ bd }} {{ week }} 今日推荐"><span class="sr-only">{{ bd }} {{ week }} </span>今日推荐</h1>
+    <h1 aria-label="{{ bd }} {{ week }} 今日分析"><span class="sr-only">{{ bd }} {{ week }} </span>今日分析</h1>
     <div class="meta snapshot-meta">{{ icon('clock-3') }}<span>足球 {{ fb_meta.source_update or '待核' }} · 篮球 {{ bk_meta.source_update or '待核' }}</span>
       {% if fb_meta.stale or bk_meta.stale %}<span class="st warn">最近快照 · 实时抓取失败</span>{% endif %}</div>
   </div>
