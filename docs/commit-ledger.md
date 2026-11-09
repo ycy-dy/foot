@@ -261,4 +261,13 @@
 - **部署**：无active后最终5020 PID48678，healthz/readiness均通过；生产2026-11-09按钮开始分析、task=null，未启动生产AI/发布/消息。临时测试进程收尾停止。
 - **范围/推送**：本轮源码/测试/规格/文档，不纳入原env/ledger/runs/var；提交后main→origin/main核验，不强推。#8其他生产UI验收范围保持开放。
 
+## C20261109-038 · 借用开源方法新增概率与评估原语（规格037）
+
+- **关联**：[Issue #14](https://github.com/ycy-dy/foot/issues/14)（模型验证路线）、[规格037](../specs/037-borrowed-methods/spec.md)、[借鉴清单](../docs/open-source-borrowing.md)。新Issue因本机`gh`不可用待同步，见清单第5节。
+- **范围**：只新增文件。`docs/open-source-borrowing.md`记录10项借鉴矩阵、许可分级与不借鉴项；`engine/probability.py`提供Poisson/DC低比分修正/1X2/大小球/让球/Elo/logloss/Brier/ECE/校准斜率/walk-forward纯函数；`tests/test_probability.py`11条。
+- **边界**：未接入推荐、发布或复盘；页面`model_probability`/EV保持null；不改014/036政策，不触碰在途036改动。
+- **验证**：`tests/test_probability.py` 11 passed；完整回归551 passed/314.89s，2 failed（test_recommendation_decisions、test_reviewed_reanalysis），在HEAD干净worktree复跑两条均pass，确认由在途036未提交改动引起，非本笔引入。compileall与`git diff --check`通过。
+- **部署**：无运行代码接入，不重启服务，健康检查状态不变。
+- **推送目标**：main→origin/main；结果以远程核验为准，不强推。
+
 
