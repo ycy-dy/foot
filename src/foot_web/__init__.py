@@ -13,7 +13,7 @@ from .auth.dingtalk import DingTalkIdentity
 from .auth.routes import bp as auth_bp
 from .core.config import load_config
 from .data.fetcher import Fetcher
-from .engine.tasks import AnalysisTasks
+from .engine.tasks import AnalysisTasks, analysis_action
 from .engine.review_tasks import ReviewTasks
 from .scheduler import Scheduler
 from .storage.jobs import JobsStore
@@ -112,6 +112,7 @@ def create_app(config=None, fetcher=None, identity=None, analysis_launcher=None)
 
     @app.context_processor
     def inject():
-        return {'user': g.get('user'), 'csrf': session.get('csrf', ''), 'csp_nonce': csp_nonce()}
+        return {'user': g.get('user'), 'csrf': session.get('csrf', ''), 'csp_nonce': csp_nonce(),
+                'analysis_action': analysis_action}
 
     return app

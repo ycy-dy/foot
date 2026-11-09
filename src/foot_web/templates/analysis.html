@@ -3,7 +3,7 @@
 {% block body %}
 <div class="pagehead">
   <div><div class="eyebrow">{{ analysis_task.business_date }} / AI 研究</div><h1>{{ '分析草稿' if draft_html else '分析任务' }}</h1><div class="meta">{{ analysis_task.id }}<br>创建于 <time datetime="{{ analysis_task.created_at }}">{{ analysis_task.created_at[:19]|replace('T', ' ') }}</time></div></div>
-  <div class="actions"><a class="btn" href="/?date={{ analysis_task.business_date }}">返回今日分析</a><button class="btn primary" type="button" id="btn-recompute" data-analysis-date="{{ analysis_task.business_date }}" title="重新发起分析">{{ icon('refresh-cw') }}<span>重新分析</span></button>{% include 'analysis_stop_button.html' %}</div>
+  <div class="actions"><a class="btn" href="/?date={{ analysis_task.business_date }}">返回今日分析</a>{% set analysis_date = analysis_task.business_date %}{% include 'analysis_start_button.html' %}{% include 'analysis_stop_button.html' %}</div>
 </div>
 {% include 'analysis_status.html' %}
 <section class="card" id="research-matches">
@@ -32,4 +32,4 @@
 {% if draft_html %}<div class="md">{{ draft_html|safe }}</div>{% endif %}
 </article>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='analysis.js') }}?v=7" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='analysis.js') }}?v=8" defer></script>{% endblock %}

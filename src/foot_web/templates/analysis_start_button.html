@@ -1,0 +1,2 @@
+{% set action = analysis_action(analysis_task) %}
+<button type="button" class="btn primary" id="btn-recompute" data-analysis-date="{{ analysis_date }}" data-analysis-mode="{{ action.mode }}" title="{{ action.title }}" aria-busy="{{ 'true' if action.disabled else 'false' }}"{% if action.disabled %} disabled{% endif %}>{{ icon('refresh-cw' if action.mode in ['reanalyze', 'retry'] else 'play') }}<span>{{ action.label }}</span></button>

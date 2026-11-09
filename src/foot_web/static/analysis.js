@@ -23,6 +23,8 @@
   const byId = id => document.getElementById(id);
   const workspace = byId('analysis-workspace');
   const button = byId('btn-recompute');
+  const idleAction = button ? {mode: button.dataset.analysisMode, label: button.querySelector('span').textContent,
+    title: button.title, disabled: button.disabled} : null;
   const banner = byId('analysis-status');
   const title = byId('analysis-title');
   const message = byId('analysis-message');
@@ -60,7 +62,8 @@
       snapshot: progress.total ? ['done', '已冻结']
         : failed ? ['failed', '未完成'] : task.status === 'running' ? ['active', '准备中'] : ['pending', '等待'],
       research: progress.phase === 'research' && active(task) ? ['active', '研究中']
-        : ['compose', 'draft'].includes(progress.phase) ? ['done', '已保存'] : failed ? ['failed', '可续跑'] : ['pending', '等待'],
+        : ['compose', 'draft'].includes(progress.phase) ? ['done', '已保存']
+        : failed ? ['failed', progress.generation && progress.total ? '可续跑' : '未开始'] : ['pending', '等待'],
       compose: progress.phase === 'compose' && active(task) ? ['active', '计算中']
         : progress.phase === 'draft' ? ['done', '已计算'] : ['pending', '等待'],
       draft: task.publication_state === 'withdrawn' ? ['done', '展示已撤销']
@@ -105,13 +108,18 @@
       control.querySelector('span').textContent = stopping ? '正在终止…' : '终止分析';
     });
     if (button) {
+      const action = task?.action || idleAction;
       const running = !!active(task);
-      button.disabled = running || submitting;
+      button.disabled = running || submitting || !!controlPending;
       button.classList.toggle('is-loading', running || submitting);
       button.setAttribute('aria-busy', String(running || submitting));
+      button.dataset.analysisMode = action.mode;
+      button.title = action.title;
       const label = button.querySelector('span') || button;
       label.textContent = submitting ? '正在提交…' : stopping ? '正在终止…'
-        : running ? `${names[task.provider] || '后台'}分析中` : '重新分析';
+        : action.label;
+      const glyph = button.querySelector('use');
+      if (glyph) glyph.setAttribute('href', `/static/icons.svg#${['reanalyze', 'retry'].includes(action.mode) ? 'refresh-cw' : 'play'}`);
     }
     workspace.hidden = !task && !submitting && !banner.classList.contains('analysis-failed');
     if (!task) return;
@@ -123,7 +131,8 @@
       : task.status === 'failed' ? '分析失败'
       : task.status === 'interrupted' ? '分析已中断'
       : task.status === 'partial' ? '部分完成 · 检查点已保留'
-      : task.status === 'cancelled' ? '分析已终止 · 检查点已保留'
+      : task.status === 'cancelled' ? (task.progress?.total || task.attempts.length
+        ? '分析已终止 · 检查点已保留' : '任务已取消 · 尚未开始分析')
       : stopping ? '正在终止分析 · 已完成结果保留'
       : task.status === 'queued' ? '分析任务已提交'
       : `${names[task.provider] || '后台'} 分析中`;
@@ -142,7 +151,8 @@
         : '逐场进度 · 等待快照';
     }
     if (byId('analysis-resume')) {
-      byId('analysis-resume').hidden = !progress.generation || !['partial', 'failed', 'cancelled', 'interrupted'].includes(task.status);
+      byId('analysis-resume').hidden = !progress.generation || !progress.total
+        || !['partial', 'failed', 'cancelled', 'interrupted'].includes(task.status);
       byId('analysis-resume').disabled = !!controlPending;
     }
     if (byId('analysis-reuse-label')) byId('analysis-reuse-label').hidden = !progress.generation;
@@ -367,7 +377,7 @@
       if (!response.ok || !data.success || !data.task) throw new Error(data.message || data.task?.message || `HTTP ${response.status}`);
       controller?.abort();
       clearTimeout(timer);
-      task = data.task;
+      task = normalizeTask(data.task);
       cursor = 0;
       rows = [];
       lines.replaceChildren();

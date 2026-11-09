@@ -102,11 +102,20 @@ class Store:
 
     def latest_analysis(self, business_date):
         with self.connect() as db:
-            row = db.execute("""SELECT * FROM analysis_runs WHERE status IN ('queued', 'running')
-                             OR business_date = ?
-                             ORDER BY (status IN ('queued', 'running')) DESC, created_at DESC, id DESC LIMIT 1""",
+            row = db.execute("""SELECT * FROM analysis_runs WHERE business_date = ?
+                             ORDER BY created_at DESC, id DESC LIMIT 1""",
                              (business_date,)).fetchone()
             return dict(row) if row else None
+
+    def active_analysis(self):
+        with self.connect() as db:
+            row = db.execute("SELECT * FROM analysis_runs WHERE status IN ('queued', 'running') LIMIT 1").fetchone()
+        return dict(row) if row else None
+
+    def has_analysis_history(self, business_date):
+        with self.connect() as db:
+            return db.execute("""SELECT 1 FROM analysis_runs WHERE business_date=?
+                AND (status='succeeded' OR json_array_length(attempts)>0) LIMIT 1""", (business_date,)).fetchone() is not None
 
     def update_analysis(self, task_id, **fields):
         allowed = {'status', 'provider', 'message', 'worker_pid', 'attempts', 'finished_at'}

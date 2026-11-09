@@ -6,7 +6,7 @@ from flask import Blueprint, Response, abort, current_app, g, jsonify, render_te
 
 from ..auth.routes import admin_required
 from ..data import markets
-from ..engine.tasks import output_dir
+from ..engine.tasks import AnalysisBusy, output_dir
 from ..services import engine
 from ..services.drafts import render_draft
 from ..services.ledger import GROUPS
@@ -119,6 +119,8 @@ def recompute():
     try:
         task, reused = current_app.extensions['analysis_tasks'].start(business_date, g.user['user_id'],
             reuse_from=(data or {}).get('reuse_from'))
+    except AnalysisBusy as exc:
+        return jsonify(success=False, message=str(exc), busy_task=exc.task), 409
     except (ValueError, TypeError):
         return jsonify(success=False, message='业务日须为 YYYY-MM-DD；复用任务必须属于同一业务日'), 400
     current_app.extensions['store'].event('analysis_requested', g.user['user_id'], g.user['name'], request.remote_addr or '',

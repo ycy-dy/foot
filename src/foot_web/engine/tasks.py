@@ -19,6 +19,36 @@ TZ = ZoneInfo('Asia/Shanghai')
 ACTIVE = {'queued', 'running'}
 
 
+def analysis_action(task=None):
+    """One next-action contract for HTML and live task updates, scoped to a day."""
+    if not task:
+        mode, label, disabled, title = 'start', '开始分析', False, '开始本业务日的首次分析'
+    elif task['status'] in ACTIVE:
+        if (task.get('progress', {}).get('cancel_requested')
+                or task.get('message') == '正在取消，等待CLI清理'):
+            mode, label = 'stopping', '正在终止…'
+        elif task['status'] == 'queued':
+            mode, label = 'queued', '等待分析'
+        else:
+            provider = {'codex': 'Codex CLI', 'harness': 'DeepSeek Harness'}.get(task.get('provider'), '后台')
+            mode, label = 'running', provider + '分析中'
+        disabled, title = True, '当前任务尚未结束，不能重复提交'
+    elif (task.get('has_analysis_history') or task['status'] == 'succeeded'
+          or task.get('attempts') or task.get('progress', {}).get('completed', 0)):
+        mode, label, disabled, title = 'reanalyze', '重新分析', False, '新建分析任务，保留原任务和已完成结果'
+    elif task['status'] == 'cancelled':
+        mode, label, disabled, title = 'start', '开始分析', False, '之前任务未执行，开始本业务日分析'
+    else:
+        mode, label, disabled, title = 'retry', '重试分析', False, '之前任务未完成启动，重新尝试分析'
+    return {'mode': mode, 'label': label, 'disabled': disabled, 'title': title}
+
+
+class AnalysisBusy(ValueError):
+    def __init__(self, task):
+        self.task = task
+        super().__init__(f'{task["business_date"]} 的分析任务正在执行，请先等待或到分析中心终止该任务')
+
+
 def public_task(row):
     if not row:
         return None
@@ -63,6 +93,8 @@ class AnalysisTasks:
                                          (row['id'],)).fetchone() if exists else None
             result['publication_url'] = '/publications/' + publication['id'] if publication else None
             result['publication_state'] = publication['status'] if publication else None
+            result['has_analysis_history'] = self.store.has_analysis_history(row['business_date'])
+            result['action'] = analysis_action(result)
         return result
 
     def _recover(self, row):
@@ -108,9 +140,11 @@ class AnalysisTasks:
             parent = self.store.analysis(reuse_from)
             if not parent or parent['business_date'] != business_date:
                 raise ValueError('复用任务业务日不匹配')
-        self.latest(business_date)  # Recover a dead worker before transactional admission.
+        self._recover(self.store.active_analysis())
         task_id = 'analysis-' + datetime.now(TZ).strftime('%Y%m%dT%H%M%S%f') + '-' + uuid.uuid4().hex[:8]
         row, created = self.store.begin_analysis(task_id, business_date, requested_by)
+        if not created and row['business_date'] != business_date:
+            raise AnalysisBusy(self.present(row))
         if created:
             if reuse_from:
                 self.research.set_parent(task_id, reuse_from)
@@ -130,7 +164,10 @@ class AnalysisTasks:
         if (current.get('compatibility') != 'supported_subset' or not workflow
                 or not same_version(current, workflow['manifest'])):
             raise ValueError('规则或程序版本已变化，请重新分析')
+        self._recover(self.store.active_analysis())
         row, created = self.research.resume(task_id)
+        if not created and row['id'] != task_id:
+            raise AnalysisBusy(self.present(row))
         if created:
             self.store.event('analysis_resumed', actor, detail={'task_id': task_id})
             row = self._launch(task_id)

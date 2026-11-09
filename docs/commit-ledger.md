@@ -253,4 +253,12 @@
 - **最终结果**：`.venv/bin/python -m pytest -q` 通过 **523 passed/151.03s**；`compileall`和`git diff --check`通过；重启5020 PID16932，`/healthz`返回ok、`/readiness`返回db/policy均true。提交后推送origin/main并核验远程。
 - **边界**：当前日期没有官方数据时显示空态是预期行为，不编造比赛；不改写旧快照、旧推荐或生产台账。
 
+## C20261109-037 · 分析按钮真实状态与业务日隔离
+
+- **关联**：[Issue #8](https://github.com/ycy-dy/foot/issues/8)、[规格035](../specs/035-analysis-action-state/spec.md)。
+- **原因/修改**：模板和JS写死重新分析、latest查询混入跨日active。改同日历史/独立全局准入与恢复，跨日新建和跨任务resume返回409；共享action/按钮组件，首次开始、排队等待、运行/终止、有尝试重新、未执行取消开始、未启动失败重试；未有检查点不称可续跑。
+- **验证**：2红转绿，最终完整539 passed/146.19s；真实analysis.js Node状态迁移、桌面/手机隔离点击和正式已登录首页只读复验，开始图标本地Lucide，脚本v8。compileall/JS语法/diff通过。
+- **部署**：无active后最终5020 PID48678，healthz/readiness均通过；生产2026-11-09按钮开始分析、task=null，未启动生产AI/发布/消息。临时测试进程收尾停止。
+- **范围/推送**：本轮源码/测试/规格/文档，不纳入原env/ledger/runs/var；提交后main→origin/main核验，不强推。#8其他生产UI验收范围保持开放。
+
 
