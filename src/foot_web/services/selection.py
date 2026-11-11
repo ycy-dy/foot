@@ -10,6 +10,7 @@ from .recommendations import all_directions, build_bundle, selection_fingerprint
 from .evidence_confidence import passes
 from .research import ANALYSIS_REQUEST, confirmed_sources, fingerprint, json_text
 from .versions import SUPPORTED_PROVIDERS
+from . import conditional_pairs
 
 TEXT = {'type': 'string', 'minLength': 1, 'maxLength': 4000}
 IDS = {'type': 'array', 'items': TEXT, 'uniqueItems': True}
@@ -65,8 +66,8 @@ def decision_context(source, items, manifest, as_of):
     # each market alternative can exceed the decision input bound by itself.
     for option in slim_options.values():
         score = option['evidence_confidence']
-        option['evidence_confidence'] = {key: score[key] for key in
-                                        ('version', 'eligible', 'evidence_confidence')}
+        option['evidence_confidence'] = ({key: score[key] for key in
+                                        ('version', 'eligible', 'evidence_confidence')} if score else None)
     matches = {item['match_key']: {key: item['match'][key] for key in
                                   ('sport', 'num', 'business_date', 'kickoff', 'period', 'league', 'home', 'away')}
                for item in items}
@@ -103,13 +104,14 @@ def make_decision_prompt(context):
         '本轮“今天”指业务日' + context['business_date'] + '。当前是总任务的最终推荐阶段，'
         '现行项目规则原文在输入analysis_request.rules中（旧输入可能未保存），必须遵守其最新修订。\n'
         '你是最终推荐决策员。逐场价格盲证据已冻结；现在必须审阅全部合规候选，返回真实取舍，不得只解释程序首选。'
-        '每个候选已通过evidence_confidence>=70的版本化证据政策门槛；这是证据评分不是胜率，不能自行改分或绕过关键阻断。'
+        '候选分证据达标与低置信度条件二串一。先选达标组合；没有达标且真实可行时必须给条件二串一，不能因低于70或缺人工凭据直接不成串。'
+        '条件票必须明确高风险、证据缺口，不能伪称70分通过。这是证据分不是胜率，不能自行改分或绕过真实身份/可售/已开赛/结构/已确认矛盾。'
         '市场基准p_mkt不是模型概率、价值证据或收益保证，不能上调；模型概率和EV保持null。'
         '逐个slot明确返回candidate_id（无剩余合规项才为null）和取舍理由。先审阅证据、提出有来源的风险否决，'
         '再在每个slot未被否决的候选中选最高p_mkt；仅同概率可自由取舍，不能无依据跳过高排名项。'
         'vetoes只能引用该选项所属比赛已冻结source_ids，不得把缺资料当作已确认反证。'
         '每个最终实际采用选项都需assessments：至少两条理由、机制、主要失败路径risk、撤销条件withdraw_if；'
-        '至少一条理由引用非赔率来源。没有来源须明确“仅按市场基准”，不可编造。'
+        '达标选项至少一条理由引用非赔率来源；条件票没有来源须在理由中明确“仅按市场基准”，不可编造。'
         '所有slot都须覆盖：final为分段二串一，single在该段不能成串时使用；six为六类，structure为结构研究。'
         'dream先排除与已选足球final（无串时为实际前两名单场）结算矛盾的比分，再按p_mkt选择每场最佳，'
         '最后程序按p_mkt取四场；不足四场或未核CRS4x1不成单。dream slot候选为完整比分目录，须自行核路径。'
@@ -155,6 +157,8 @@ def validate_decision(value, context, source, items, manifest, as_of):
             if chosen_id is not None:
                 raise ValueError('AI选择了已否决或路径矛盾候选')
             return None
+        qualified = [candidate for candidate in allowed if not conditional_pairs.marked(candidate)]
+        allowed = qualified or allowed
         chosen = next((row for row in allowed if candidate_id(row) == chosen_id), None)
         if chosen is None:
             raise ValueError('AI未选择真实合规候选')
@@ -165,12 +169,16 @@ def validate_decision(value, context, source, items, manifest, as_of):
 
     bundle = build_bundle(source, items, manifest, as_of, selector=select)
     for leg in all_directions(bundle, include_structures=True):
-        if not passes(leg.get('evidence_confidence')):
+        conditional = conditional_pairs.enabled(manifest) and conditional_pairs.valid(leg)
+        if not passes(leg.get('evidence_confidence')) and not conditional:
             raise ValueError('实际推荐腿未通过证据可信度硬门槛')
         opinion = assessments.get(leg['option_id'])
         if opinion is None:
             raise ValueError('实际推荐腿缺少AI返回理由')
-        if not set(opinion['source_ids']) & confirmed.get(leg['match_key'], set()):
+        if conditional:
+            if not opinion['source_ids'] and not any('仅按市场基准' in reason for reason in opinion['reasons']):
+                raise ValueError('条件票缺非赔率来源时必须明确仅按市场基准')
+        elif not set(opinion['source_ids']) & confirmed.get(leg['match_key'], set()):
             raise ValueError('最终推荐必须引用已核实非赔率来源，不能仅按市场基准绕过70%门槛')
     return copy.deepcopy(value)
 
@@ -192,7 +200,7 @@ def apply_decision(value, context, source, items, manifest, as_of, provenance):
         for key in ('reasons', 'risk', 'withdraw_if', 'mechanism'):
             leg[key] = copy.deepcopy(opinion[key])
         leg['sources'] = [sources[leg['match_key']][key] for key in opinion['source_ids']]
-        if not passes(leg.get('evidence_confidence')):
+        if not passes(leg.get('evidence_confidence')) and not (conditional_pairs.enabled(manifest) and conditional_pairs.valid(leg)):
             raise ValueError('AI最终应用的推荐腿未通过证据可信度硬门槛')
         leg['evidence_state'] = 'ai_sourced_pending_manual_review' if leg['sources'] else 'market_only'
         leg['ai_decision_sha256'] = provenance['validated_sha256']

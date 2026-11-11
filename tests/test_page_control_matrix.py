@@ -41,6 +41,16 @@ def test_viewer_page_roles_and_no_write_controls(client, identity, path):
         assert all(a.get('action') == '/logout' for a in forms)
 
 
+def test_provenance_navigation_marks_current_page(client, identity):
+    login(client, identity)
+    response = client.get('/provenance')
+    assert response.status_code == 200
+    doc = Elements(response.get_data(as_text=True))
+    current = [attrs for tag, attrs in doc.elements
+               if tag == 'a' and attrs.get('href') == '/provenance']
+    assert current and current[0].get('aria-current') == 'page'
+
+
 def test_unavailable_report_and_login_logout_are_explicit(client, identity):
     assert client.get('/').status_code == 302
     login(client, identity)

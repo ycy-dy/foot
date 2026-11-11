@@ -43,13 +43,14 @@ def rules_manifest(project_dir):
         ('评分实现版本', config['evidence']['score_version'] == VERSION and THRESHOLD == 70),
         ('政策启用', config.get('enabled') is True),
         ('证据门槛70%', config['evidence']['threshold_percent'] == 70),
-        ('缺评分不推荐', config['evidence']['missing_score_action'] == 'no_recommendation'),
+        ('缺评分仅条件二串一', config['evidence']['missing_score_action'] == 'conditional_pair_only'),
         ('足球单项', str(config['football']['minimum_selection_odds']) == str(MIN_FB)),
         ('每分支整单倍数', str(config['arithmetic']['effective_multiple_strictly_greater_than']) == str(GATE)),
         ('八结构', structures == expected),
         ('真实AI', config['decision']['ai_required'] is True),
         ('政策唯一运行提供方', config['decision']['providers'] == [provider]),
-        ('不强制条件票', config['decision']['conditional_pair_required'] is False),
+        ('可行时必须条件成串', config['decision']['conditional_pair_required'] is True
+            and config['decision'].get('conditional_scope') == 'regular_pairs_only'),
         ('冻结每日台账', config['publication']['daily_frozen_ledger'] is True),
         ('不投注', config['publication']['execute_bet'] is False),
     ]
@@ -65,6 +66,7 @@ def rules_manifest(project_dir):
         'compatibility': 'supported_subset' if all(ok for _, ok in checks) else 'unsupported',
         'semantic_validation': '只校验列明机器契约；证据评分非命中概率或事实认证',
         'evidence_threshold_percent': 70,
+        'conditional_pair_required': config['decision']['conditional_pair_required'],
         'model_status': '未部署独立预测模型', 'model_probability': None, 'EV': None,
     }
     return manifest, texts

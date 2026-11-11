@@ -79,6 +79,9 @@ def normalized_tickets(bundle, publication_id):
                 'evidence_score_reliable': leg.get('evidence_score_reliable'),
                 'evidence_score_basis': copy.deepcopy(leg.get('evidence_score_basis')),
                 'evidence_confidence': copy.deepcopy(leg.get('evidence_confidence')),
+                'recommendation_status': leg.get('recommendation_status', 'evidence_qualified'),
+                'conditional_policy_revision': leg.get('conditional_policy_revision'),
+                'confidence': leg.get('confidence'), 'evidence_gaps': copy.deepcopy(leg.get('evidence_gaps', [])),
             })
         tickets.append({'business_date': bundle['business_date'], 'published_at': bundle['as_of'],
                         'run_id': publication_id, 'publication_id': publication_id, 'title': title,
@@ -88,6 +91,8 @@ def normalized_tickets(bundle, publication_id):
                         'legs_total': len(legs), 'legs_hit': None, 'theoretical_return': None,
                         'actual_stake': None, 'actual_return': None,
                         'ai_decision': copy.deepcopy(bundle['ai_decision'])})
+        tickets[-1]['recommendation_status'] = ('conditional_low_confidence' if any(
+            leg.get('recommendation_status') == 'conditional_low_confidence' for leg in legs) else 'evidence_qualified')
 
     for group in bundle['groups']:
         ticket(group['name'], '足球最终串' if group['sport'] == 'football' else '篮球最终串', group['legs'], 'headline')
@@ -177,17 +182,23 @@ class PublicationService:
         from .evidence_reviews import verify_leg
         from ..core.config import id_set
         verified_options = {}
+        from . import conditional_pairs
         for leg in legs:
             item = item_map.get(leg.get('match_key'), {})
             recomputed = score_evidence(item.get('payload'), option_id=leg.get('option_id'), as_of=now)
-            if not passes(leg.get('evidence_confidence')) or not passes(recomputed):
+            conditional = conditional_pairs.enabled(current) and conditional_pairs.valid(leg)
+            if any(row.get('status') == 'conflict' for row in (item.get('payload') or {}).get('dimensions', [])):
+                errors.append('存在来源冲突，条件票也不能发布：' + str(leg.get('num', '待核')))
+            if not conditional and (not passes(leg.get('evidence_confidence')) or not passes(recomputed)):
                 errors.append('证据可信度未可靠达到70分或证据已过期：' + str(leg.get('num', '待核')))
             key = fingerprint({'option_id': leg.get('option_id'), 'sources': leg.get('sources')})
             if key not in verified_options:
                 verified_options[key] = verify_leg(self.data, task_id, leg, now, item.get('payload'),
                                                    id_set(self.config.get('FOOT_ADMIN_USER_IDS')))
-            if not verified_options[key]:
+            if not conditional and not verified_options[key]:
                 errors.append('来源人工复核磁盘凭据缺失、过期或身份不匹配：' + str(leg.get('num', '待核')))
+            if conditional:
+                notes.append(str(leg.get('num')) + ' ' + conditional_pairs.WARNING)
         refreshed = fresh_input(self.fetcher, task['business_date'], now)
         # A fresh catalog may invalidate choices; it must never silently select replacement legs.
         from .rechecks import compare_quotes

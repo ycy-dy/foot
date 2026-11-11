@@ -90,7 +90,11 @@ def callback():
     try:
         identity = current_app.extensions['dingtalk_identity'].exchange(code)
     except (ValueError, KeyError, requests.RequestException) as exc:
-        store.event('login_failed', ip=ip, detail={'error': str(exc)[:200]})
+        # Upstream exception messages can contain URLs, authorization codes or tokens.
+        # Keep a bounded diagnostic category, never the untrusted exception text.
+        category = ('request_error' if isinstance(exc, requests.RequestException)
+                    else 'invalid_response')
+        store.event('login_failed', ip=ip, detail={'error': category})
         return redirect(url_for('auth.login', error='登录失败：请确认是本企业成员且应用权限正常'))
     role = role_for(cfg, identity['user_id'])
     if not role:

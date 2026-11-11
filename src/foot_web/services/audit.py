@@ -37,6 +37,7 @@ def effective_multiples(legs):
 def audit(data, require_reasons=True):
     """返回 (errors, notes)。data 格式见 tools/audit_recommendations.py。"""
     from .evidence_confidence import passes
+    from . import conditional_pairs
     errs, notes, finals = [], [], {}
     strict_evidence = data.get('require_evidence_confidence') is True
     for lg in data.get('singles', []) + data.get('six', []) + data.get('dream_legs', []):
@@ -56,7 +57,11 @@ def audit(data, require_reasons=True):
                 errs.append(f'{n} {lg["num"]}: 理由少于2条')
             # New recommendation artifacts carry the score contract. Historical
             # settlement-only audit rows have no score and remain immutable.
-            if (strict_evidence or 'evidence_confidence' in lg) and not passes(lg.get('evidence_confidence')):
+            conditional = (data.get('conditional_policy_revision') == conditional_pairs.REVISION
+                           and conditional_pairs.valid(lg) and conditional_pairs.marked(g))
+            if conditional_pairs.marked(lg) and not conditional:
+                errs.append(f'{n} {lg["num"]}: 条件推荐声明缺失、越权或不完整')
+            if (strict_evidence or 'evidence_confidence' in lg) and not passes(lg.get('evidence_confidence')) and not conditional:
                 errs.append(f'{n} {lg["num"]}: 未通过证据可信度硬门槛')
             for o in lg['options']:
                 if g['sport'] == 'football' and Decimal(o['odds']) < MIN_FB:

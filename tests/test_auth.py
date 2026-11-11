@@ -1,6 +1,7 @@
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+import requests
 
 from conftest import login
 
@@ -130,3 +131,23 @@ def test_removed_from_whitelist_loses_access(client, identity, app):
 def test_exchange_failure(client, identity):
     r = login(client, identity, code='bad')
     assert '/login' in r.headers['Location']
+
+
+@pytest.mark.parametrize(('exception', 'category'), [
+    (ValueError('bad response authCode=secret-code'), 'invalid_response'),
+    (KeyError('secret-token'), 'invalid_response'),
+    (requests.RequestException(
+        'https://example.test/?authCode=secret-code&token=secret-token'), 'request_error'),
+])
+def test_exchange_failure_does_not_store_exception_secrets(client, identity, app, monkeypatch, exception, category):
+    def fail(code):
+        raise exception
+
+    monkeypatch.setattr(identity, 'exchange', fail)
+    response = login(client, identity, code='secret-code')
+    event = app.extensions['store'].recent(1)[0]
+    assert '/login' in response.headers['Location']
+    assert event['event'] == 'login_failed'
+    assert category in event['detail']
+    assert 'secret-code' not in event['detail']
+    assert 'secret-token' not in event['detail']

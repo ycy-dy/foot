@@ -105,7 +105,9 @@ def decision_response(prompt):
     return {'context_sha256': fingerprint(context), 'summary': '模拟AI已审阅候选，按市场基准排序并保留条件风险。',
             'vetoes': [], 'choices': [{'slot': slot, 'candidate_id': row['id'] if row else None,
                                      'reason': '模拟AI审阅证据后保留最高合规市场基准候选'} for slot, row in chosen.items()],
-            'assessments': [{'option_id': key, 'reasons': ['模拟AI：对照冻结来源中的名单及表现记录，不上调市场基准',
+            'assessments': [{'option_id': key, 'reasons': [('模拟AI：对照冻结来源中的名单及表现记录，不上调市场基准' if any(
+                (item.get('payload') or {}).get('sources') for item in context['evidence'] if item['match_key'] == options[key]['match_key'])
+                else '模拟AI：未查到非赔率依据，仅按市场基准'),
                                                         '模拟AI：需沿本项结算路径发展，缺阵使路径失效'],
                              'source_ids': [s['id'] for item in context['evidence']
                                              if item['match_key'] == options[key]['match_key']

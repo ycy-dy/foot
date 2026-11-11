@@ -6,6 +6,7 @@ from . import engine
 from .audit import audit, hit_ft
 from .evidence_confidence import score_evidence, passes
 from .research import DIMENSIONS, STATUSES, exclusion_reason, fingerprint, match_key, moment, option_catalog
+from . import conditional_pairs
 
 SIX = [('胜平负', 'HAD'), ('让球', 'HHAD'), ('进球数', 'TTG'), ('二三球', 'TTG'),
        ('半全场', 'HAFU'), ('双平', 'DD')]
@@ -48,10 +49,10 @@ def options_with_evidence(match, item, as_of=None):
     return out
 
 
-def _leg(match, option):
+def _leg(match, option, conditional=False):
     home, away = match['home'], match['away']
     matchup = f'{home} VS {away}' if match['sport'] == 'football' else f'{away}（客） VS {home}（主）'
-    return {'match_key': match_key(match), 'sport': match['sport'], 'num': match['num'],
+    leg = {'match_key': match_key(match), 'sport': match['sport'], 'num': match['num'],
             'home': home, 'away': away, 'matchup': matchup, 'kickoff': match['kickoff'],
             'business_date': match['business_date'], 'period': match['period'], 'league': match['league'],
             'option_id': option['id'], 'market': option['code'], 'L': option['line'],
@@ -60,10 +61,17 @@ def _leg(match, option):
             'reasons': option['reasons'], 'sources': option['sources'], 'evidence_state': option['evidence_state'],
             'risk': option['risk'], 'withdraw_if': option['withdraw_if'], 'mechanism': option['mechanism'],
             'confidence': '证据政策门槛结果', 'evidence_confidence': copy.deepcopy(option.get('evidence_confidence')), 'price_advantage': 'unproven'}
+    if conditional:
+        score = option.get('evidence_confidence') or {}
+        leg.update(recommendation_status=conditional_pairs.STATUS,
+                   conditional_policy_revision=conditional_pairs.REVISION,
+                   confidence=conditional_pairs.WARNING,
+                   evidence_gaps=copy.deepcopy(score.get('reasons') or ['无可靠评分或人工凭据，不能声称证据已达标']))
+    return leg
 
 
-def _final_eligible(match, option):
-    if option['code'] == 'CRS' or option['vetoed'] or not passes(option.get('evidence_confidence')):
+def _final_eligible(match, option, conditional=False):
+    if option['code'] == 'CRS' or option['vetoed'] or (not conditional and not passes(option.get('evidence_confidence'))):
         return False
     if match['sport'] == 'football':
         alternative = max((o['p'] for o in match['research_options'] if o['code'] != 'CRS' and not o['vetoed']), default=None)
@@ -74,13 +82,17 @@ def _final_eligible(match, option):
     return True
 
 
-def _pair(candidate, matches, title, sport):
-    legs = [_leg(matches[leg['num']], leg['opt']) for leg in candidate['legs']]
-    return {'name': title, 'sport': sport, 'legs': legs, 'structure': candidate['struct'],
+def _pair(candidate, matches, title, sport, conditional=False):
+    legs = [_leg(matches[leg['num']], leg['opt'], conditional) for leg in candidate['legs']]
+    result = {'name': title, 'sport': sport, 'legs': legs, 'structure': candidate['struct'],
             'p_mkt_joint': candidate['p'], 'probability_method': '独立近似，未处理相关性',
             'branch_products': candidate['prods'], 'effective_multiples': candidate['eff'],
             'branches': candidate['branches'], 'confidence': '证据政策门槛结果',
             'model_probability': None, 'EV': None, 'price_advantage': 'unproven'}
+    if conditional:
+        result.update(recommendation_status=conditional_pairs.STATUS, confidence=conditional_pairs.WARNING,
+                      conditional_policy_revision=conditional_pairs.REVISION)
+    return result
 
 
 def build_bundle(source, items, manifest, as_of, *, selector=None, catalog=None):
@@ -99,13 +111,16 @@ def build_bundle(source, items, manifest, as_of, *, selector=None, catalog=None)
     by_key = {item['match_key']: item for item in items}
     matches = copy.deepcopy(source['football'] + source['basketball'])
     eligible = []
+    allow_conditional = conditional_pairs.enabled(manifest)
     for match in matches:
         item = by_key.get(match_key(match), {})
         match['research_options'] = options_with_evidence(match, item, as_of)
         match['exclusion'] = exclusion_reason(match, as_of)
         if item.get('status') != 'succeeded' and not match['exclusion']:
             match['exclusion'] = '逐场证据尚未完成'
-        if not match['exclusion'] and not any(passes(o.get('evidence_confidence')) for o in match['research_options']):
+        if not match['exclusion'] and any(row.get('status') == 'conflict' for row in _research(item).get('dimensions', [])):
+            match['exclusion'] = '存在已记录来源冲突，不能用条件标签绕过'
+        if not allow_conditional and not match['exclusion'] and not any(passes(o.get('evidence_confidence')) for o in match['research_options']):
             match['exclusion'] = '证据可信度未可靠达到70%，不推荐；请补齐时效、关键证据及选项依据'
         if not match['exclusion']:
             eligible.append(match)
@@ -123,7 +138,15 @@ def build_bundle(source, items, manifest, as_of, *, selector=None, catalog=None)
         candidates = engine.pairs(pool, opts, sport) if len(pool) >= 2 else []
         accepted = [candidate for candidate in candidates if candidate['gate_ok']]
         mapping = {m['num']: m for m in pool}
-        selected = choose('final:' + title, [_pair(c, mapping, title, sport) for c in accepted])
+        normal = [_pair(c, mapping, title, sport) for c in accepted]
+        fallback = []
+        if allow_conditional:
+            normal_ids = {tuple(leg['option_id'] for leg in pair['legs']) for pair in normal}
+            for candidate in engine.pairs(pool, lambda m: [o for o in m['research_options'] if _final_eligible(m, o, True)], sport):
+                ids = tuple(leg['opt']['id'] for leg in candidate['legs'])
+                if candidate['gate_ok'] and ids not in normal_ids:
+                    fallback.append(_pair(candidate, mapping, title, sport, True))
+        selected = choose('final:' + title, normal + fallback)
         directions = []
         for match in pool:
             choices = [_leg(match, option) for option in match['research_options']
@@ -131,7 +154,7 @@ def build_bundle(source, items, manifest, as_of, *, selector=None, catalog=None)
             leg = choose('single:' + match_key(match), choices)
             if leg:
                 directions.append(leg)
-        reason = '不足两场未开赛可售且证据可信度达70%的比赛，不能成串' if len(pool) < 2 else '没有同时满足风险、玩法与每分支实际倍数>2.5的组合'
+        reason = '本时段不足两场真实未开赛、可售可过关且无硬冲突的比赛，无法组成二串一' if len(pool) < 2 else '没有满足真实报价、允许结构、风险一致性及每分支实际倍数>2.5的组合'
         periods.append({'name': title, 'sport': sport, 'count': len(pool), 'note': note,
                         'group': selected, 'reason': None if selected else reason})
         if selected:
@@ -191,6 +214,8 @@ def build_bundle(source, items, manifest, as_of, *, selector=None, catalog=None)
                              'singles': [r['leg'] for r in singles], 'six': [r['leg'] for r in six if r['leg']],
                              'dream_legs': dream, 'dream': [
         {'num': leg['num'], 'score': leg['label'], 'odds': leg['options'][0]['odds']} for leg in dream]}
+    if allow_conditional:
+        bundle['audit_input']['conditional_policy_revision'] = conditional_pairs.REVISION
     errors, notes = audit(bundle['audit_input'])
     bundle['draft_checks'] = {'errors': errors, 'notes': notes, 'published': False}
     bundle['selection_sha256'] = selection_fingerprint(bundle)
@@ -225,7 +250,8 @@ def _leg_text(leg):
     score = leg.get('evidence_confidence') or {}
     quality = str(score.get('evidence_confidence', '待核'))
     return (f'{leg["num"]} {_cell(leg["matchup"])} · {_cell(leg["label"])}（{prices}） · p_mkt {leg["p_mkt"]:.1%}'
-            + f' · 证据可信度 {quality}/100（{score.get("version", "无契约")}，非命中概率）')
+            + f' · 证据可信度 {quality}/100（{score.get("version", "无契约")}，非命中概率）'
+            + (' · ' + conditional_pairs.WARNING if conditional_pairs.marked(leg) else ''))
 
 
 def render_report(bundle, items, published=False):
@@ -239,9 +265,13 @@ def render_report(bundle, items, published=False):
         group = period['group']
         if group:
             lines += [_leg_text(leg) + '  ' for leg in group['legs']]
+            quality_note = (conditional_pairs.WARNING + '；仅市场基准或部分资料，模型概率/EV未知。'
+                            if conditional_pairs.marked(group) else '证据门槛已通过，模型概率仍未验证。')
             lines += [f'整单实际倍数：{"／".join(group["effective_multiples"])}；'
-                      f'联合市场基准约 {group["p_mkt_joint"]:.1%}（独立近似）。证据门槛已通过，模型概率仍未验证。', '']
+                      f'联合市场基准约 {group["p_mkt_joint"]:.1%}（独立近似）。' + quality_note, '']
             for leg in group['legs']:
+                if conditional_pairs.marked(leg):
+                    lines += ['证据缺口：' + '；'.join(_cell(gap) for gap in leg['evidence_gaps']), '']
                 lines += [f'- {leg["num"]} 理由：' + '；'.join(_cell(r) for r in leg['reasons']),
                           '', f'  风险：{_cell(leg["risk"])}；撤销条件：{_cell(leg["withdraw_if"])}。', '']
         else:

@@ -1,5 +1,5 @@
 schema_version: '1.0'
-spec_revision: '2026-11-06-evidence-70-01'
+spec_revision: '2026-11-09-required-pairs-01'
 enabled: true
 timezone: Asia/Shanghai
 canonical_document: specs/014-evidence-gated-recommendations/policy.md
@@ -7,7 +7,7 @@ evidence:
   threshold_percent: 70
   score_version: evidence-policy-1.0.0
   contract: specs/014-evidence-gated-recommendations/scoring.md
-  missing_score_action: no_recommendation
+  missing_score_action: conditional_pair_only
   score_kind: versioned_policy_evidence_score_not_event_probability
   allow_ai_self_score: false
 football:
@@ -56,7 +56,8 @@ decision:
   min_reasons_per_option: 2
   require_non_odds_source: true
   require_failure_path_and_withdrawal: true
-  conditional_pair_required: false
+  conditional_pair_required: true
+  conditional_scope: regular_pairs_only
   unverified_model_probability: null
   unverified_EV: null
 publication:
