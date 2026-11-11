@@ -114,11 +114,13 @@ def test_only_public_messages_and_errors_cross_log_boundary():
     stream.codex({'type': 'item.completed', 'item': {'type': 'reasoning', 'text': 'PRIVATE'}})
     stream.codex(item('completed', text='PRIVATE', result='PRIVATE'))
     stream.codex({'type': 'item.completed', 'item': {'type': 'agent_message', 'text': 'public'}})
-    stream.codex({'type': 'turn.failed', 'error': {'message': 'public failure'}})
+    stream.codex({'type': 'item.completed', 'item': {'type': 'error', 'message': 'SECRET_ITEM'}})
+    stream.codex({'type': 'turn.failed', 'error': {'message': 'SECRET_FAILURE'}})
     assert ('output', 'public') in events
-    assert ('error', 'public failure') in events
+    assert ('warning', 'Codex 返回诊断信息，已隐藏原始内容') in events
+    assert ('error', 'Codex 返回执行错误，已隐藏原始内容') in events
     assert not stream.completed
-    assert 'PRIVATE' not in str(events)
+    assert all(secret not in str(events) for secret in ('PRIVATE', 'SECRET_ITEM', 'SECRET_FAILURE'))
 
 
 def run_fake(tmp_path, monkeypatch, payloads, budget, *, cancelled=None, disabled=False):

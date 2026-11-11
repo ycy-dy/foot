@@ -155,11 +155,17 @@ def failure(text):
     if any(word in lowered for word in ('code-mode host is disabled', 'code mode is unavailable',
                                         'unrecognized feature', 'unknown feature', 'unknown config field')):
         return ProviderError('configuration', 'CLI隔离配置与当前版本不兼容，停止本轮该提供方；请核对Code Mode配置')
-    if any(word in lowered for word in ('rate limit', 'rate_limit', '429', 'hit your limit', 'quota',
-                                        'usage limit', 'too many requests', 'credit balance', '限额')):
+    if (any(word in lowered for word in ('rate limit', 'rate_limit', 'hit your limit', 'quota',
+                                         'usage limit', 'too many requests', 'credit balance', '限额'))
+            or re.search(r'\b(?:http(?: status)?|status(?: code)?)\s*[:=]?\s*429\b', lowered)):
         return ProviderError('rate_limit', '额度不足或触发限流')
-    if any(word in lowered for word in ('not logged', 'unauthorized', 'authentication', 'invalid api key', '401', '请先登录')):
+    if (any(word in lowered for word in ('not logged', 'unauthorized', 'authentication failed',
+                                         'invalid api key', '请先登录'))
+            or re.search(r'\b(?:http(?: status)?|status(?: code)?)\s*[:=]?\s*401\b', lowered)):
         return ProviderError('authentication', '本机 CLI 认证不可用')
+    if any(word in lowered for word in ('connection refused', 'connection reset', 'dns lookup failed',
+                                        'name or service not known', 'failed to connect')):
+        return ProviderError('connection', 'CLI 连接服务失败，请检查网络及服务状态')
     return ProviderError('execution_failed', 'CLI 调用失败')
 
 
@@ -321,11 +327,9 @@ def generate(provider, prompt, workspace, config, on_event=None, schema=None, ca
             raise
         output.seek(0)
         raw = output.read(MAX_OUTPUT + 1)
-        errors.seek(0)
-        error_text = errors.read(8192).decode('utf-8', errors='replace')
         if process.returncode:
             emit('error', f'CLI 退出码 {process.returncode}')
-            raise failure(error_text + raw[:8192].decode('utf-8', errors='replace'))
+            raise failure(diagnostic_tail + raw[:8192].decode('utf-8', errors='replace'))
         if provider == 'codex':
             path = workspace / 'response.json'
             if not path.is_file() or path.stat().st_size > MAX_OUTPUT:

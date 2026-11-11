@@ -13,10 +13,44 @@ def test_harness_command_uses_isolated_headless_patch(tmp_path, monkeypatch):
     assert 'claude' not in ' '.join(args) and 'codex' not in ' '.join(args)
 
 
+@pytest.mark.parametrize(('diagnostic', 'expected'), [
+    ('connection refused', 'connection'),
+    ('HTTP 401 unauthorized', 'authentication'),
+    ('HTTP 429 too many requests', 'rate_limit'),
+    ('opaque provider failure', 'execution_failed'),
+])
+def test_simulated_cli_failure_is_classified_without_leaking_diagnostics(tmp_path, monkeypatch, diagnostic, expected):
+    events = []
+    marker = 'UNRECOGNIZED_PRIVATE_VALUE'
+
+    class Process:
+        pid = 12345
+        returncode = 1
+
+        def communicate(self, input=None, timeout=None):
+            return None
+
+    def launch(*args, **kwargs):
+        # Put the cause after the first 8192 bytes to exercise the retained tail.
+        kwargs['stderr'].write(('x' * 9000 + '\nERROR ' + diagnostic + ' ' + marker + '\n').encode())
+        kwargs['stderr'].flush()
+        return Process()
+
+    monkeypatch.setattr(providers, 'command', lambda *a: ['fake-codex'])
+    monkeypatch.setattr(providers.subprocess, 'Popen', launch)
+    with pytest.raises(providers.ProviderError) as error:
+        providers.generate('codex', 'PRIVATE_PROMPT', tmp_path, {},
+                           on_event=lambda kind, text: events.append((kind, text)))
+    assert error.value.code == expected
+    assert marker not in str(error.value) + repr(events)
+    assert 'PRIVATE_PROMPT' not in str(error.value) + repr(events)
+
+
 def test_configuration_error_classification():
     for text in ('Code Mode is unavailable because code-mode host is disabled.', 'unknown feature abc'):
         assert providers.failure(text).code == 'configuration'
     assert providers.failure('network failed').code == 'execution_failed'
+    assert providers.failure('request 401234 token 429123').code == 'execution_failed'
 
 
 def test_configuration_stream_fails_fast_and_cleans_group(tmp_path, monkeypatch):
@@ -84,7 +118,8 @@ def test_optional_host_diagnostic_does_not_kill_native_web_success(tmp_path, mon
                                 on_event=lambda kind, text: events.append((kind, text)))
     assert result == {'ok': True}
     assert not killed
-    assert any(kind == 'warning' and 'code-mode' in text for kind, text in events)
+    assert any(kind == 'warning' and '隐藏原始内容' in text for kind, text in events)
+    assert diagnostic not in repr(events)
     assert any(kind == 'tool' and 'WebSearch' in text for kind, text in events)
 
 
@@ -153,10 +188,10 @@ def test_nonterminal_diagnostics_are_warnings_but_terminal_is_error(message):
     events = []
     stream = CLIEvents('codex', lambda kind, text: events.append((kind, text)))
     stream.codex({'type': 'item.completed', 'item': {'type': 'error', 'message': message}})
-    assert events[-1] == ('warning', message)
+    assert events[-1] == ('warning', 'Codex 返回诊断信息，已隐藏原始内容')
     assert stream.terminal_error is None
     stream.codex({'type': 'error', 'message': message})
     assert stream.terminal_error == message
     stream.codex({'type': 'turn.failed', 'error': {'message': message}})
     assert stream.terminal_error == message
-    assert events[-1] == ('error', message)
+    assert events[-1] == ('error', 'Codex 返回执行错误，已隐藏原始内容')

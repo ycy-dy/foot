@@ -51,7 +51,8 @@ def test_native_stream_is_visible_before_cli_exit_and_keeps_failure(tmp_path, mo
         thread.join(5)
     assert not thread.is_alive()
     assert failures == ['execution_failed']
-    assert any('upstream timeout' in message for _, message in events)
+    assert any('隐藏原始内容' in message for _, message in events)
+    assert all('upstream timeout' not in message for _, message in events)
 
 
 def test_harness_jsonl_final_response_survives_stream_wrapping(tmp_path, monkeypatch):
@@ -126,7 +127,7 @@ def test_harness_stream_keeps_public_evidence_and_never_private_reasoning():
     stream.finish()
     logged = json.dumps(seen, ensure_ascii=False)
     assert 'PRIVATE_' not in logged and 'private-secret' not in logged
-    assert '公开伤停' in logged and 'web_search' in logged and '[REDACTED]' in logged
+    assert '公开伤停' in logged and 'web_search' in logged and '隐藏原始内容' in logged
     assert stream.public_evidence == ['公开来源链接']
 
 
@@ -148,7 +149,7 @@ def test_private_blocks_are_not_logged_and_old_event_types_are_rejected(tmp_path
     stream.finish()
     text = json.dumps(seen, ensure_ascii=False)
     assert 'PRIVATE_' not in text and 'test-secret-value' not in text and 'another-secret-value' not in text
-    assert '公开伤停' in text and 'WebSearch' in text and '[REDACTED]' in text
+    assert '公开伤停' in text and 'WebSearch' in text and '隐藏原始内容' in text
     from foot_web.engine.logs import CodexToolEventError
     with pytest.raises(CodexToolEventError):
         stream.feed('stdout', '{"type":"user","text":"PRIVATE_PROMPT"}\n')

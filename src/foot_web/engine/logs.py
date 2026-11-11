@@ -43,13 +43,12 @@ class CLIEvents:
     def line(self, channel, line):
         if channel == 'stderr':
             clean = ANSI.sub('', line).strip()
-            if self.provider == 'codex' and clean.startswith('Code Mode is unavailable'):
-                self.emit('warning', clean)
-                return
-            # JSON mode sends diagnostics here; never persist arbitrary prompt echoes.
-            if re.match(r'^(?:\d{4}-\d\d-\d\d[T ][^\s]+\s+)?'
-                        r'(?:WARN(?:ING)?\b|ERROR\b|Error:|error:|Reconnecting\b)', clean):
-                self.emit('warning', clean)
+            # Diagnostics can contain arbitrary secrets or echoed prompts. Never
+            # publish their contents, even when they resemble warning lines.
+            if clean and (clean.startswith('Code Mode is unavailable') or
+                          re.match(r'^(?:\d{4}-\d\d-\d\d[T ][^\s]+\s+)?'
+                                   r'(?:WARN(?:ING)?\b|ERROR\b|Error:|error:|Reconnecting\b)', clean)):
+                self.emit('warning', 'CLI 报告诊断信息，已隐藏原始内容')
             return
         try:
             event = json.loads(line)
@@ -95,7 +94,7 @@ class CLIEvents:
             self.emit('status', 'DeepSeek Harness 已返回最终结果，等待结构验证')
         elif kind == 'error':
             self.terminal_error = str(event.get('message') or 'Harness执行失败')
-            self.emit('error', str(event.get('message') or 'Harness执行失败'))
+            self.emit('error', 'Harness 返回执行错误，已隐藏原始内容')
         else:
             raise CodexToolEventError('未知Harness事件，拒绝旧协议或混合协议')
 
@@ -155,8 +154,7 @@ class CLIEvents:
                                'dynamic_tool_call', 'tool_call'):
                 raise CodexToolEventError('Codex 暴露了研究白名单以外工具，拒绝继续')
             elif item_type == 'error':
-                message = str(item.get('message') or 'Codex 返回错误')
-                self.emit('warning', message)
+                self.emit('warning', 'Codex 返回诊断信息，已隐藏原始内容')
             elif item_type not in ('reasoning', 'agent_message', 'todo_list'):
                 raise CodexToolEventError('未知Codex item类型，拒绝旧协议或无法核算的工具')
             # Reasoning items and arbitrary tool arguments are intentionally omitted.
@@ -166,7 +164,7 @@ class CLIEvents:
                 detail = detail.get('message') or 'Codex 返回执行错误'
             self.completed = False
             self.terminal_error = str(detail)
-            self.emit('error', str(detail))
+            self.emit('error', 'Codex 返回执行错误，已隐藏原始内容')
         elif kind == 'turn.completed':
             self.completed = self.terminal_error is None
             usage = event.get('usage') or {}
